@@ -2,9 +2,11 @@
 // Only includes get and set functions (no subscription)
 const Web3 = require('web3');
 const { ContractAbi } = require('./abi');
- 
+
 // Contract configuration
 const contractAddress = process.env.CONTRACT_ADDRESS;
+
+// Define the contract ABI
 
 // Define the contract ABI
 const contractABI = ContractAbi;
