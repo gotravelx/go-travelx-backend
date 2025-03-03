@@ -21,6 +21,8 @@ app.use(express.urlencoded({ extended: true }));
 
 app.use('/v1/flights', router);
 
+
+
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
     connectDb()
