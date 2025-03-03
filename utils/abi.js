@@ -1,4 +1,4 @@
-ContractAbi = [
+const ContractAbi = [
     {
         "inputs": [],
         "stateMutability": "nonpayable",
@@ -445,4 +445,4 @@ ContractAbi = [
 ];
 
 
-module.exports = { ContractAbi };
+export default ContractAbi;

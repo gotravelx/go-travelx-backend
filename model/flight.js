@@ -1,41 +1,71 @@
-import mongoose from "mongoose";
+// model/flight.js
+import mongoose from 'mongoose';
 
-// Define the Flight Data Schema
 const flightDataSchema = new mongoose.Schema({
-    flightNumber: { type: String, required: true },
-    estimatedArrivalUTC: { type: String, required: true },
-    estimatedDepartureUTC: { type: String, required: true },
-    arrivalCity: { type: String, required: true },
-    departureCity: { type: String, required: true },
-    operatingAirline: { type: String, required: true },
-    departureGate: { type: String, required: true },
-    arrivalGate: { type: String, required: true },
-    flightStatus: { type: String, required: true },
-    statusCode: { type: String, required: true },
-    equipmentModel: { type: String, required: true },
+    flightNumber: {
+        type: Number,
+        required: true
+    },
+    flightOriginationDate: {
+        type: String,
+        required: true
+    },
+    operatingAirline: {
+        type: String,
+        required: true
+    },
+    estimatedArrivalUTC: String,
+    estimatedDepartureUTC: String,
+    actualDepartureUTC: String,
+    actualArrivalUTC: String,
+    outTimeUTC: String,
+    offTimeUTC: String,
+    onTimeUTC: String,
+    inTimeUTC: String,
+    arrivalCity: String,
+    departureCity: String,
+    departureGate: String,
+    arrivalGate: String,
+    departureTerminal: String,
+    arrivalTerminal: String,
+    flightStatus: String,
+    statusCode: String,
+    equipmentModel: String,
     phase: {
         type: String,
         enum: ['not_departed', 'out', 'off', 'on', 'in'],
-        required: true
+        default: 'not_departed'
     },
-    departureTerminal: { type: String },
-    arrivalTerminal: { type: String },
-    actualDepartureUTC: { type: String },
-    actualArrivalUTC: { type: String },
-    outTimeUTC: { type: String },
-    offTimeUTC: { type: String },
-    onTimeUTC: { type: String },
-    inTimeUTC: { type: String },
-    baggageClaim: { type: String },
-    departureDelayMinutes: { type: Number },
-    arrivalDelayMinutes: { type: Number },
-    boardingTime: { type: String },
-    isCanceled: { type: Boolean, required: true },
-    scheduledArrivalUTCDateTime: { type: String, required: true },
-    scheduledDepartureUTCDateTime: { type: String, required: true },
+    baggageClaim: String,
+    departureDelayMinutes: {
+        type: Number,
+        default: 0
+    },
+    arrivalDelayMinutes: {
+        type: Number,
+        default: 0
+    },
+    boardingTime: String,
+    isCanceled: {
+        type: Boolean,
+        default: false
+    },
+    scheduledArrivalUTCDateTime: String,
+    scheduledDepartureUTCDateTime: String,
+    blockchainTxHash: String,
+    blockchainUpdated: {
+        type: Boolean,
+        default: false
+    }
+}, {
+    timestamps: true,
+    // Create a compound index for efficient queries
+    index: {
+        flightNumber: 1,
+        flightOriginationDate: 1
+    }
 });
 
-// Create the model
 const FlightData = mongoose.model('FlightData', flightDataSchema);
 
 export default FlightData;
