@@ -11,7 +11,7 @@ const connectDb = async () => {
       connection.connection.host,
       connection.connection.name
     );
-
+    await autoUpdateAllFlights();
   } catch (error) {
     console.log("Database connection failed");
     process.exit(1);

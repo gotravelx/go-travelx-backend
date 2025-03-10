@@ -7,14 +7,15 @@ const DataSourceSchema = new mongoose.Schema(
       type: Number,
       required: true,
     },
-    flightOriginationDate: {
+    scheduledDepartureDate: {
       type: String,
       required: true,
     },
-    operatingAirline: {
+    carrierCode: {
       type: String,
       required: true,
     },
+    operatingAirline: String,
     estimatedArrivalUTC: String,
     estimatedDepartureUTC: String,
     actualDepartureUTC: String,
@@ -25,7 +26,8 @@ const DataSourceSchema = new mongoose.Schema(
     inTimeUTC: String,
     arrivalCity: String,
     departureCity: String,
-    departureGate: String,
+    arrivalAirport: String,
+    departureAirport: String,
     arrivalGate: String,
     departureTerminal: String,
     arrivalTerminal: String,
@@ -56,7 +58,6 @@ const DataSourceSchema = new mongoose.Schema(
   },
   {
     timestamps: true,
-    // Create a compound index for efficient queries
     index: {
       flightNumber: 1,
       flightOriginationDate: 1,

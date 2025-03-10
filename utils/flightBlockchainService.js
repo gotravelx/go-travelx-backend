@@ -10,7 +10,7 @@ const privateKey = process.env.PRIVATE_KEY;
 const blockchainProvider = process.env.PRIMARY_CAMINO_PROVIDER;
 
 // Create blockchain service instance
-const flightBlockchainService = createFlightBlockchainService(
+const blockchainService = createFlightBlockchainService(
   blockchainProvider,
   contractAddress,
   contractABI,
@@ -19,9 +19,9 @@ const flightBlockchainService = createFlightBlockchainService(
 );
 
 // Optional: Check connectivity before operations
-const isConnected = await flightBlockchainService.diagnosticContractCheck();
+const isConnected = await blockchainService.diagnosticContractCheck();
 if (!isConnected) {
   console.error("Contract connectivity check failed");
 }
 
-export default flightBlockchainService;
+export default blockchainService;

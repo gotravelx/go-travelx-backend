@@ -36,82 +36,71 @@ class FlightBlockchainService {
   /**
    * Check detailed flight status with enhanced error handling
    * @param {string} flightNumber
-   * @param {string} flightOriginationDate
+   * @param {string} scheduledDepartureDate
    * @param {string} carrierCode
    * @returns {Promise<Object>} Detailed flight status
    */
   async checkDetailedFlightStatus(
     flightNumber,
-    flightOriginationDate,
+    scheduledDepartureDate,
     carrierCode
   ) {
     try {
-      console.log("Attempting to check flight status with:", {
+      console.log("Checking detailed flight status for:", {
         flightNumber,
-        flightOriginationDate,
+        scheduledDepartureDate,
         carrierCode,
       });
 
-      if (!flightNumber || !flightOriginationDate || !carrierCode) {
+      if (!flightNumber || !scheduledDepartureDate || !carrierCode) {
         throw new Error("Missing required flight parameters");
       }
 
-      // Convert inputs if necessary
+      // Convert inputs to strings
       flightNumber = flightNumber.toString();
-      flightOriginationDate = Math.floor(
-        new Date(flightOriginationDate).getTime() / 1000
+      scheduledDepartureDate = scheduledDepartureDate.toString();
+      carrierCode = carrierCode.toString();
+
+      // This retrieves the status struct directly from the mapping
+      const status = await this.contract.checkFlightStatus(
+        flightNumber,
+        scheduledDepartureDate,
+        carrierCode
       );
 
-      console.log("Formatted input values:", {
-        flightNumber,
-        flightOriginationDate,
-        carrierCode,
-      });
-
-      // Ensure contract exists
-      const contractCode = await this.provider.getCode(this.contract.address);
-      if (contractCode === "0x") {
-        throw new Error("Contract is not deployed at this address.");
-      }
-
-      try {
-        const status = await this.contract.checkFlightStatus(
-          flightNumber,
-          flightOriginationDate,
-          carrierCode
-        );
-        console.log("Received flight status:", status);
-
-        return {
-          flightStatusCode: status.flightStatusCode,
-          flightStatusDescription: status.flightStatusDescription,
-          outUtc: status.outUtc.toNumber(),
-          offUtc: status.offUtc.toNumber(),
-          onUtc: status.onUtc.toNumber(),
-          inUtc: status.inUtc.toNumber(),
-        };
-      } catch (contractError) {
-        console.error("Contract call error details:", {
-          name: contractError.name,
-          message: contractError.message,
-          code: contractError.code,
-          reason: contractError.reason,
-          data: contractError.data,
-        });
-
-        if (contractError.code === "CALL_EXCEPTION") {
-          throw new Error(`Contract call failed. Possible reasons:
-          - Flight does not exist in the contract
-          - Incorrect parameters
-          - Contract method not found
-          - Network connectivity issues`);
-        }
-
-        throw contractError;
-      }
+      // Format the response with status details
+      return {
+        flightStatusCode: status.flightStatusCode,
+        flightStatusDescription: status.flightStatusDescription,
+        outUtc: status.outUtc,
+        offUtc: status.offUtc,
+        onUtc: status.onUtc,
+        inUtc: status.inUtc,
+        // Add human-readable timestamps where values exist
+        timestamps: {
+          outTime:
+            status.outUtc && status.outUtc !== "0"
+              ? new Date(parseInt(status.outUtc) * 1000).toISOString()
+              : null,
+          offTime:
+            status.offUtc && status.offUtc !== "0"
+              ? new Date(parseInt(status.offUtc) * 1000).toISOString()
+              : null,
+          onTime:
+            status.onUtc && status.onUtc !== "0"
+              ? new Date(parseInt(status.onUtc) * 1000).toISOString()
+              : null,
+          inTime:
+            status.inUtc && status.inUtc !== "0"
+              ? new Date(parseInt(status.inUtc) * 1000).toISOString()
+              : null,
+        },
+      };
     } catch (error) {
-      console.error("Comprehensive error in checkDetailedFlightStatus:", error);
-      throw new Error(`Failed to check flight status: ${error.message}`);
+      console.error("Detailed flight status error:", error);
+      throw new Error(
+        `Failed to check detailed flight status: ${error.message}`
+      );
     }
   }
 
@@ -124,7 +113,6 @@ class FlightBlockchainService {
       // Attempt to call a simple, read-only method to test connectivity
       const networkInfo = await this.provider.getNetwork();
       console.log("Connected to network:", networkInfo.name);
-      console.log("Comino ", this.provider);
 
       // Check contract address validity
       const code = await this.provider.getCode(this.contractAddress);
@@ -142,32 +130,60 @@ class FlightBlockchainService {
   /**
    * Get flight details from blockchain
    * @param {string} flightNumber
-   * @param {string} flightOriginationDate
+   * @param {string} scheduledDepartureDate
    * @param {string} carrierCode
    * @returns {Promise<Object>} Flight details
    */
-  async getFlightDetails(flightNumber, flightOriginationDate, carrierCode) {
+  async getFlightDetails(flightNumber, scheduledDepartureDate, carrierCode) {
     try {
-      const flightDetails = await this.contract.getFlightDetails(
+      // Validate required parameters
+      if (!flightNumber || !scheduledDepartureDate || !carrierCode) {
+        throw new Error("Missing required flight parameters");
+      }
+
+      console.log("Fetching flight details for:", {
         flightNumber,
-        flightOriginationDate,
+        scheduledDepartureDate,
+        carrierCode,
+      });
+
+      // Convert inputs to strings if they aren't already
+      flightNumber = flightNumber.toString();
+      scheduledDepartureDate = scheduledDepartureDate.toString();
+      carrierCode = carrierCode.toString();
+
+      // Get flight details from contract
+      const flightData = await this.contract.getFlightDetails(
+        flightNumber,
+        scheduledDepartureDate,
         carrierCode
       );
 
+      // Create structured return object
       return {
-        flightNumber: flightDetails[0],
-        flightOriginationDate: flightDetails[1],
-        carrierCode: flightDetails[2],
-        arrivalCity: flightDetails[3],
-        departureCity: flightDetails[4],
-        operatingAirline: flightDetails[5],
-        arrivalGate: flightDetails[6],
-        departureGate: flightDetails[7],
-        flightStatus: flightDetails[8],
-        equipmentModel: flightDetails[9],
+        flightNumber: flightData.flightNumber,
+        scheduledDepartureDate: flightData.scheduledDepartureDate,
+        carrierCode: flightData.carrierCode,
+        arrivalCity: flightData.arrivalCity,
+        departureCity: flightData.departureCity,
+        arrivalAirport: flightData.arrivalAirport,
+        departureAirport: flightData.departureAirport,
+        operatingAirlineCode: flightData.operatingAirlineCode,
+        arrivalGate: flightData.arrivalGate,
+        departureGate: flightData.departureGate,
+        flightStatus: flightData.flightStatus,
+        equipmentModel: flightData.equipmentModel,
       };
     } catch (error) {
       console.error("Error fetching flight details:", error);
+
+      // Provide more user-friendly error for the common 'not subscribed' error
+      if (error.message.includes("You are not a subscribed user")) {
+        throw new Error(
+          "You must subscribe to this flight before accessing its details"
+        );
+      }
+
       throw new Error(`Failed to fetch flight details: ${error.message}`);
     }
   }
@@ -175,21 +191,97 @@ class FlightBlockchainService {
   /**
    * Get flight status from blockchain
    * @param {string} flightNumber
-   * @param {string} flightOriginationDate
+   * @param {string} scheduledDepartureDate
    * @param {string} carrierCode
-   * @returns {Promise<string>} Flight status
+   * @returns {Promise<Object>} Flight status details and history
    */
-  async getFlightStatus(flightNumber, flightOriginationDate, carrierCode) {
+  async getFlightStatus(flightNumber, scheduledDepartureDate, carrierCode) {
     try {
-      const status = await this.contract.getFlightStatus(
+      // Validate input
+      if (!flightNumber || !scheduledDepartureDate || !carrierCode) {
+        throw new Error("Missing required flight parameters");
+      }
+
+      console.log("Checking flight status for:", {
         flightNumber,
-        flightOriginationDate,
+        scheduledDepartureDate,
+        carrierCode,
+      });
+
+      // Convert to strings
+      flightNumber = flightNumber.toString();
+      scheduledDepartureDate = scheduledDepartureDate.toString();
+      carrierCode = carrierCode.toString();
+
+      // Call the smart contract function
+      const statusString = await this.contractWithSigner.getFlightStatus(
+        flightNumber,
+        scheduledDepartureDate,
         carrierCode
       );
 
-      return status;
+      // Log response
+      console.log("Blockchain Response:", statusString);
+
+      // Ensure the transaction exists
+      if (!statusString.hash) {
+        throw new Error("Invalid transaction response from blockchain");
+      }
+
+      // Fetch transaction receipt
+      const tx = await this.provider.getTransaction(statusString.hash);
+      const receipt = await tx.wait();
+
+      // Log the full transaction receipt
+      console.log("Transaction Receipt:", JSON.stringify(receipt, null, 2));
+
+      // Validate that receipt contains events
+      if (!receipt.events) {
+        throw new Error("No events found in the transaction receipt.");
+      }
+
+      // Filter flight status events
+      const statusEvents = receipt.events.filter(
+        (event) => event.event === "currentFlightStatus" // Adjust this based on your contract event name
+      );
+
+      // Check if events exist
+      if (statusEvents.length === 0) {
+        throw new Error("No matching flight status events found.");
+      }
+
+      // Map status history
+      const statusHistory = statusEvents.map((event) => {
+        const {
+          flightNumber,
+          scheduledDepartureDate,
+          flight_times,
+          carrierCode,
+          status,
+          statusCode,
+        } = event.args;
+
+        return {
+          time: flight_times,
+          status,
+          statusCode,
+          timestamp: new Date(parseInt(flight_times) * 1000).toISOString(),
+        };
+      });
+
+      return {
+        currentStatus: statusString,
+        statusHistory,
+      };
     } catch (error) {
       console.error("Error fetching flight status:", error);
+
+      if (error.message.includes("You are not a subscribed user")) {
+        throw new Error(
+          "You must subscribe to this flight before accessing its status"
+        );
+      }
+
       throw new Error(`Failed to fetch flight status: ${error.message}`);
     }
   }
@@ -197,25 +289,76 @@ class FlightBlockchainService {
   /**
    * Get UTC times for a flight
    * @param {string} flightNumber
-   * @param {string} flightOriginationDate
+   * @param {string} scheduledDepartureDate
    * @param {string} carrierCode
    * @returns {Promise<Object>} UTC times
    */
-  async getFlightUTCTimes(flightNumber, flightOriginationDate, carrierCode) {
+  async getFlightUTCTimes(flightNumber, scheduledDepartureDate, carrierCode) {
     try {
+      // Validate inputs
+      if (!flightNumber || !scheduledDepartureDate || !carrierCode) {
+        throw new Error("Missing required flight parameters");
+      }
+
+      // Convert inputs to strings
+      flightNumber = flightNumber.toString();
+      scheduledDepartureDate = scheduledDepartureDate.toString();
+      carrierCode = carrierCode.toString();
+
+      // Call contract method
       const utcTimes = await this.contract.UtcTimes(
         flightNumber,
-        flightOriginationDate,
+        scheduledDepartureDate,
         carrierCode
       );
 
+      // Format the response
       return {
-        actualArrivalUTC: utcTimes.actualArrivalUTC.toNumber(),
-        actualDepartureUTC: utcTimes.actualDepartureUTC.toNumber(),
-        estimatedArrivalUTC: utcTimes.estimatedArrivalUTC.toNumber(),
-        estimatedDepartureUTC: utcTimes.estimatedDepartureUTC.toNumber(),
-        scheduledArrivalUTC: utcTimes.scheduledArrivalUTC.toNumber(),
-        scheduledDepartureUTC: utcTimes.scheduledDepartureUTC.toNumber(),
+        actualArrivalUTC: utcTimes.actualArrivalUTC,
+        actualDepartureUTC: utcTimes.actualDepartureUTC,
+        estimatedArrivalUTC: utcTimes.estimatedArrivalUTC,
+        estimatedDepartureUTC: utcTimes.estimatedDepartureUTC,
+        scheduledArrivalUTC: utcTimes.scheduledArrivalUTC,
+        scheduledDepartureUTC: utcTimes.scheduledDepartureUTC,
+        // Add human-readable dates
+        formattedTimes: {
+          actualArrival:
+            utcTimes.actualArrivalUTC !== "0"
+              ? new Date(
+                  parseInt(utcTimes.actualArrivalUTC) * 1000
+                ).toISOString()
+              : null,
+          actualDeparture:
+            utcTimes.actualDepartureUTC !== "0"
+              ? new Date(
+                  parseInt(utcTimes.actualDepartureUTC) * 1000
+                ).toISOString()
+              : null,
+          estimatedArrival:
+            utcTimes.estimatedArrivalUTC !== "0"
+              ? new Date(
+                  parseInt(utcTimes.estimatedArrivalUTC) * 1000
+                ).toISOString()
+              : null,
+          estimatedDeparture:
+            utcTimes.estimatedDepartureUTC !== "0"
+              ? new Date(
+                  parseInt(utcTimes.estimatedDepartureUTC) * 1000
+                ).toISOString()
+              : null,
+          scheduledArrival:
+            utcTimes.scheduledArrivalUTC !== "0"
+              ? new Date(
+                  parseInt(utcTimes.scheduledArrivalUTC) * 1000
+                ).toISOString()
+              : null,
+          scheduledDeparture:
+            utcTimes.scheduledDepartureUTC !== "0"
+              ? new Date(
+                  parseInt(utcTimes.scheduledDepartureUTC) * 1000
+                ).toISOString()
+              : null,
+        },
       };
     } catch (error) {
       console.error("Error fetching UTC times:", error);
@@ -225,9 +368,15 @@ class FlightBlockchainService {
 
   /**
    * Insert flight details into blockchain
-   * @param {string[]} flightData
-   * @param {string[]} utcTimes
-   * @param {string[]} status
+   * @param {string[]} flightData - Array containing flight details in order:
+   *   [flightNumber, scheduledDepartureDate, carrierCode, arrivalCity, departureCity,
+   *    arrivalAirport, departureAirport, operatingAirlineCode, arrivalGate, departureGate,
+   *    flightStatus, equipmentModel]
+   * @param {string[]} utcTimes - Array containing UTC times in order:
+   *   [actualArrivalUTC, actualDepartureUTC, estimatedArrivalUTC, estimatedDepartureUTC,
+   *    scheduledArrivalUTC, scheduledDepartureUTC]
+   * @param {string[]} status - Array containing status info in order:
+   *   [flightStatusCode, flightStatusDescription, outUtc, offUtc, onUtc, inUtc]
    * @returns {Promise<Object>} Transaction result
    */
   async insertFlightDetails(flightData, utcTimes, status) {
@@ -237,15 +386,41 @@ class FlightBlockchainService {
         throw new Error("No wallet configured for transactions");
       }
 
-      // Send transaction to insert flight details
-      const transaction = await this.contractWithSigner.insertFlightDetails(
+      // Validate input arrays
+      if (!flightData || flightData.length !== 12) {
+        throw new Error("flightData array must contain exactly 12 elements");
+      }
+      if (!utcTimes || utcTimes.length !== 6) {
+        throw new Error("utcTimes array must contain exactly 6 elements");
+      }
+      if (!status || status.length !== 6) {
+        throw new Error("status array must contain exactly 6 elements");
+      }
+
+      console.log("Attempting to insert flight details:", {
         flightData,
         utcTimes,
-        status
+        status,
+      });
+
+      // Convert any non-string values to strings since the contract expects strings
+      const formattedFlightData = flightData.map((item) => item.toString());
+      const formattedUtcTimes = utcTimes.map((item) => item.toString());
+      const formattedStatus = status.map((item) => item.toString());
+
+      // Send transaction to insert flight details
+      const transaction = await this.contractWithSigner.insertFlightDetails(
+        formattedFlightData,
+        formattedUtcTimes,
+        formattedStatus
       );
 
       // Wait for transaction confirmation
       const receipt = await transaction.wait();
+      console.log(
+        "Flight details inserted successfully:",
+        receipt.transactionHash
+      );
 
       return receipt;
     } catch (error) {
@@ -257,18 +432,52 @@ class FlightBlockchainService {
   /**
    * Subscribe to flight updates
    * @param {string} flightNumber
+   * @param {string} carrierCode
+   * @param {string} departureAirport
+   * @param {string} scheduledDepartureDate
    * @returns {Promise<Object>} Transaction result
    */
-  async subscribeFlight(flightNumber) {
+  async subscribeFlight(
+    flightNumber,
+    carrierCode,
+    departureAirport,
+    scheduledDepartureDate
+  ) {
     try {
       // Ensure we have a wallet with signer capabilities
       if (!this.contractWithSigner) {
         throw new Error("No wallet configured for transactions");
       }
 
-      // Send transaction to subscribe
-      const transaction = await this.contractWithSigner.subscribe(
+      // Validate parameters
+      if (
+        !flightNumber ||
+        !carrierCode ||
+        !departureAirport ||
+        !scheduledDepartureDate
+      ) {
+        throw new Error("Missing required subscription parameters");
+      }
+
+      console.log("Subscribing to flight:", {
         flightNumber,
+        carrierCode,
+        departureAirport,
+        scheduledDepartureDate,
+      });
+
+      // Convert inputs to strings
+      flightNumber = flightNumber.toString();
+      carrierCode = carrierCode.toString();
+      departureAirport = departureAirport.toString();
+      scheduledDepartureDate = scheduledDepartureDate.toString();
+
+      // Send transaction to subscribe
+      const transaction = await this.contractWithSigner.addFlightSubscription(
+        flightNumber.toString(),
+        carrierCode,
+        departureAirport,
+        scheduledDepartureDate,
         {
           value: ethers.utils.parseEther("0.01"), // Example subscription fee
         }
@@ -276,10 +485,32 @@ class FlightBlockchainService {
 
       // Wait for transaction confirmation
       const receipt = await transaction.wait();
+      console.log(
+        "Successfully subscribed to flight:",
+        receipt.transactionHash
+      );
+
+      // Check for subscription event
+      const subscriptionEvent = receipt.events.find(
+        (event) => event.event === "SubscriptionDetails"
+      );
+
+      if (subscriptionEvent) {
+        console.log("Subscription confirmed:", subscriptionEvent.args);
+      }
 
       return receipt;
     } catch (error) {
       console.error("Error subscribing to flight:", error);
+
+      // Provide more specific errors for common issues
+      if (error.message.includes("you are already Subscribed user")) {
+        throw new Error("You are already subscribed to this flight");
+      }
+      if (error.message.includes("Flight is not Exist here")) {
+        throw new Error("This flight does not exist in the system");
+      }
+
       throw new Error(`Failed to subscribe to flight: ${error.message}`);
     }
   }
@@ -287,27 +518,176 @@ class FlightBlockchainService {
   /**
    * Unsubscribe from flight updates
    * @param {string} flightNumber
+   * @param {string} carrierCode
+   * @param {string} departureAirport
+   * @param {string} scheduledDepartureDate
    * @returns {Promise<Object>} Transaction result
    */
-  async unsubscribeFlight(flightNumber) {
+  async unsubscribeFlight(
+    flightNumber,
+    carrierCode,
+    departureAirport,
+    scheduledDepartureDate
+  ) {
     try {
       // Ensure we have a wallet with signer capabilities
       if (!this.contractWithSigner) {
         throw new Error("No wallet configured for transactions");
       }
 
+      // Validate parameters
+      if (
+        !flightNumber ||
+        !carrierCode ||
+        !departureAirport ||
+        !scheduledDepartureDate
+      ) {
+        throw new Error("Missing required unsubscription parameters");
+      }
+
+      console.log("Unsubscribing from flight:", {
+        flightNumber,
+        carrierCode,
+        departureAirport,
+        scheduledDepartureDate,
+      });
+
+      // Convert inputs to strings
+      flightNumber = flightNumber.toString();
+      carrierCode = carrierCode.toString();
+      departureAirport = departureAirport.toString();
+      scheduledDepartureDate = scheduledDepartureDate.toString();
+
       // Send transaction to unsubscribe
-      const transaction = await this.contractWithSigner.unSubscribe(
-        flightNumber
-      );
+      const transaction =
+        await this.contractWithSigner.removeFlightSubscription(
+          flightNumber,
+          carrierCode,
+          departureAirport,
+          scheduledDepartureDate
+        );
 
       // Wait for transaction confirmation
       const receipt = await transaction.wait();
+      console.log(
+        "Successfully unsubscribed from flight:",
+        receipt.transactionHash
+      );
+
+      // Check for unsubscription event
+      const unsubscriptionEvent = receipt.events.find(
+        (event) =>
+          event.event === "SubscriptionDetails" && !event.args.isSubscribe
+      );
+
+      if (unsubscriptionEvent) {
+        console.log("Unsubscription confirmed:", unsubscriptionEvent.args);
+      }
 
       return receipt;
     } catch (error) {
       console.error("Error unsubscribing from flight:", error);
+
+      // Provide more specific errors for common issues
+      if (error.message.includes("You are not a subscribed user")) {
+        throw new Error("You are not currently subscribed to this flight");
+      }
+
       throw new Error(`Failed to unsubscribe from flight: ${error.message}`);
+    }
+  }
+
+  /**
+   * Check if a user is subscribed to a specific flight
+   * @param {string} flightNumber
+   * @param {string} carrierCode
+   * @param {string} departureAirport
+   * @param {string} scheduledDepartureDate
+   * @returns {Promise<boolean>} Subscription status
+   */
+  async checkSubscriptionStatus(
+    flightNumber,
+    carrierCode,
+    departureAirport,
+    scheduledDepartureDate
+  ) {
+    try {
+      // Validate parameters
+      if (
+        !flightNumber ||
+        !carrierCode ||
+        !departureAirport ||
+        !scheduledDepartureDate
+      ) {
+        throw new Error("Missing required parameters for subscription check");
+      }
+
+      // Convert inputs to strings
+      flightNumber = flightNumber.toString();
+      carrierCode = carrierCode.toString();
+      departureAirport = departureAirport.toString();
+      scheduledDepartureDate = scheduledDepartureDate.toString();
+
+      // Call the subscriptions mapping directly
+      // Note: This requires exposing the subscriptions mapping as public in the contract
+      const isSubscribed = await this.contract.subscriptions(
+        flightNumber,
+        carrierCode,
+        departureAirport,
+        scheduledDepartureDate
+      );
+
+      return isSubscribed;
+    } catch (error) {
+      console.error("Error checking subscription status:", error);
+      throw new Error(`Failed to check subscription status: ${error.message}`);
+    }
+  }
+
+  /**
+   * List all available flight numbers in the system
+   * @returns {Promise<string[]>} Array of flight numbers
+   */
+  async listAvailableFlights() {
+    try {
+      // Get the length of the flightNumbers array
+      const length = await this.contract.flightNumbers.length();
+
+      // Convert BigNumber to number
+      const count = length.toNumber();
+
+      // Fetch all flight numbers
+      const flights = [];
+      for (let i = 0; i < count; i++) {
+        const flightNumber = await this.contract.flightNumbers(i);
+        flights.push(flightNumber);
+      }
+
+      return flights;
+    } catch (error) {
+      console.error("Error listing available flights:", error);
+      throw new Error(`Failed to list available flights: ${error.message}`);
+    }
+  }
+
+  /**
+   * Check if a specific flight exists in the system
+   * @param {string} flightNumber
+   * @returns {Promise<boolean>} Whether the flight exists
+   */
+  async checkFlightExists(flightNumber) {
+    try {
+      if (!flightNumber) {
+        throw new Error("Flight number is required");
+      }
+
+      flightNumber = flightNumber.toString();
+
+      const exists = await this.contract.isFlightExist(flightNumber);
+      return exists;
+    } catch (error) {
+      console.error("Error checking if flight exists:", error);
+      throw new Error(`Failed to check if flight exists: ${error.message}`);
     }
   }
 }

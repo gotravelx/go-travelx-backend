@@ -8,7 +8,6 @@ const flightDataSchema = new mongoose.Schema(
       required: true,
     },
     scheduledDepartureDate: {
-
       type: String,
       required: true,
     },
@@ -27,6 +26,8 @@ const flightDataSchema = new mongoose.Schema(
     inTimeUTC: String,
     arrivalCity: String,
     departureCity: String,
+    arrivalAirport: String,
+    departureAirport: String,
     departureGate: String,
     arrivalGate: String,
     departureTerminal: String,
@@ -63,7 +64,7 @@ const flightDataSchema = new mongoose.Schema(
     isSubscribed: {
       type: Boolean,
       default: false,
-    }
+    },
   },
   {
     timestamps: true,

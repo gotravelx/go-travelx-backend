@@ -41,7 +41,7 @@ export const autoUpdateAllFlights = async () => {
 
 // Function to update flight status automatically
 export const autoUpdateFlightStatus = async (flightId) => {
-  const INTERVAL = 3000000; // 5 minutes (adjust if needed)
+  const INTERVAL = 480000; // 8 minutes (adjust if needed)
 
   const updateLoop = async () => {
     try {
@@ -86,10 +86,12 @@ export const autoUpdateFlightStatus = async (flightId) => {
 
       // Update the flight phase in DB
       updateData.phase = nextPhase;
-      await DataSource.findByIdAndUpdate(flightId, updateData, { new: true });
+      await DataSource.findByIdAndUpdate(flightId, updateData, {
+        new: true,
+      });
 
       console.log(
-        `Flight ${flight.flightNumber} updated to phase: ${nextPhase}`
+        `Flight ${flight.flightNumber} updated  to phase: ${nextPhase}`
       );
 
       // Schedule next update only if not arrived
@@ -104,27 +106,38 @@ export const autoUpdateFlightStatus = async (flightId) => {
   updateLoop(); // Start updating immediately
 };
 
-
-
 export const fetchFlightFromDataSource = async (
   flightNumber,
-  flightOriginationDate,
-  operatingAirline
+  scheduledDepartureDate,
+  departureAirport,
+  carrierCode
 ) => {
   try {
-    // Validate input parameters
-    if (!flightNumber) {
+    console.log(
+      flightNumber,
+      scheduledDepartureDate,
+      departureAirport,
+      carrierCode
+    );
+
+    if (
+      !flightNumber ||
+      !scheduledDepartureDate ||
+      !departureAirport ||
+      !carrierCode
+    ) {
       throw new Error("Missing required parameters for flight data fetch");
     }
 
-    // Try to find the flight in MongoDB first
     const flight = await DataSource.findOne({
-      flightNumber: Number(flightNumber),
-      flightOriginationDate,
-      operatingAirline,
+      flightNumber,
+      scheduledDepartureDate,
+      departureAirport,
+      carrierCode,
     });
 
-    // If flight exists in database, return it
+    console.log("flight -------->", flight);
+
     if (flight) {
       console.log(
         `[DATA SOURCE] Found flight ${flightNumber} in local database`
@@ -132,12 +145,9 @@ export const fetchFlightFromDataSource = async (
       return flight;
     }
 
-    // Save the fetched data to MongoDB for future use
-    const newFlightData = new DataSource(flight);
-    await newFlightData.save();
-
-    console.log(`[DATA SOURCE] Created mock flight data for ${newFlightData}`);
-    return newFlightData;
+    // ✅ Fix: Return "Not found" before accessing flight.flightNumber
+    console.log(`[DATA SOURCE] Flight not found in local database`);
+    return { message: "Not found" };
   } catch (error) {
     console.error(`[DATA SOURCE ERROR] Failed to fetch flight data:`, error);
     throw new Error(`Failed to fetch flight data: ${error.message}`);

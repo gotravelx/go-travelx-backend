@@ -16,7 +16,7 @@ const ContractAbi = [
       {
         indexed: false,
         internalType: "string",
-        name: "flightOriginationDate",
+        name: "scheduledDepartureDate",
         type: "string",
       },
       {
@@ -40,7 +40,19 @@ const ContractAbi = [
       {
         indexed: false,
         internalType: "string",
-        name: "operatingAirline",
+        name: "arrivalAirport",
+        type: "string",
+      },
+      {
+        indexed: false,
+        internalType: "string",
+        name: "departureAirport",
+        type: "string",
+      },
+      {
+        indexed: false,
+        internalType: "string",
+        name: "operatingAirlineCode",
         type: "string",
       },
       {
@@ -81,16 +93,10 @@ const ContractAbi = [
         type: "string",
       },
       {
-        indexed: false,
-        internalType: "string",
-        name: "flightOriginationDate",
-        type: "string",
-      },
-      {
-        indexed: false,
-        internalType: "string",
-        name: "flight_times",
-        type: "string",
+        indexed: true,
+        internalType: "address",
+        name: "user",
+        type: "address",
       },
       {
         indexed: false,
@@ -101,27 +107,14 @@ const ContractAbi = [
       {
         indexed: false,
         internalType: "string",
-        name: "status",
+        name: "scheduledDepartureDate",
         type: "string",
       },
-    ],
-    name: "FlightStatusUpdated",
-    type: "event",
-  },
-  {
-    anonymous: false,
-    inputs: [
       {
         indexed: false,
         internalType: "string",
-        name: "flightNumber",
+        name: "departureAirport",
         type: "string",
-      },
-      {
-        indexed: true,
-        internalType: "address",
-        name: "user",
-        type: "address",
       },
       {
         indexed: false,
@@ -130,7 +123,7 @@ const ContractAbi = [
         type: "bool",
       },
     ],
-    name: "Subscribed",
+    name: "SubscriptionDetails",
     type: "event",
   },
   {
@@ -174,6 +167,49 @@ const ContractAbi = [
       },
     ],
     name: "UTCTimeSet",
+    type: "event",
+  },
+  {
+    anonymous: false,
+    inputs: [
+      {
+        indexed: false,
+        internalType: "string",
+        name: "flightNumber",
+        type: "string",
+      },
+      {
+        indexed: false,
+        internalType: "string",
+        name: "scheduledDepartureDate",
+        type: "string",
+      },
+      {
+        indexed: false,
+        internalType: "string",
+        name: "flight_times",
+        type: "string",
+      },
+      {
+        indexed: false,
+        internalType: "string",
+        name: "carrierCode",
+        type: "string",
+      },
+      {
+        indexed: false,
+        internalType: "string",
+        name: "status",
+        type: "string",
+      },
+      {
+        indexed: false,
+        internalType: "string",
+        name: "statusCode",
+        type: "string",
+      },
+    ],
+    name: "currentFlightStatus",
     type: "event",
   },
   {
@@ -244,7 +280,7 @@ const ContractAbi = [
       },
       {
         internalType: "string",
-        name: "departureStation",
+        name: "departureAirport",
         type: "string",
       },
       {
@@ -358,7 +394,7 @@ const ContractAbi = [
       },
       {
         internalType: "string",
-        name: "flightOriginationDate",
+        name: "scheduledDepartureDate",
         type: "string",
       },
       {
@@ -378,7 +414,17 @@ const ContractAbi = [
       },
       {
         internalType: "string",
-        name: "operatingAirline",
+        name: "arrivalAirport",
+        type: "string",
+      },
+      {
+        internalType: "string",
+        name: "departureAirport",
+        type: "string",
+      },
+      {
+        internalType: "string",
+        name: "operatingAirlineCode",
         type: "string",
       },
       {
@@ -414,7 +460,7 @@ const ContractAbi = [
       },
       {
         internalType: "string",
-        name: "flightOriginationDate",
+        name: "scheduledDepartureDate",
         type: "string",
       },
       {
@@ -434,7 +480,7 @@ const ContractAbi = [
           },
           {
             internalType: "string",
-            name: "flightOriginationDate",
+            name: "scheduledDepartureDate",
             type: "string",
           },
           {
@@ -454,7 +500,17 @@ const ContractAbi = [
           },
           {
             internalType: "string",
-            name: "operatingAirline",
+            name: "arrivalAirport",
+            type: "string",
+          },
+          {
+            internalType: "string",
+            name: "departureAirport",
+            type: "string",
+          },
+          {
+            internalType: "string",
+            name: "operatingAirlineCode",
             type: "string",
           },
           {
@@ -495,7 +551,7 @@ const ContractAbi = [
       },
       {
         internalType: "string",
-        name: "flightOriginationDate",
+        name: "scheduledDepartureDate",
         type: "string",
       },
       {
@@ -571,7 +627,7 @@ const ContractAbi = [
       },
       {
         internalType: "string",
-        name: "departureStation",
+        name: "departureAirport",
         type: "string",
       },
       {
@@ -620,4 +676,6 @@ const ContractAbi = [
     type: "function",
   },
 ];
+
 export default ContractAbi;
+  
