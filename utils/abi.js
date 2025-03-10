@@ -126,7 +126,7 @@ const ContractAbi = [
       {
         indexed: false,
         internalType: "bool",
-        name: "expiry",
+        name: "isSubscribe",
         type: "bool",
       },
     ],
@@ -228,6 +228,34 @@ const ContractAbi = [
       },
     ],
     stateMutability: "view",
+    type: "function",
+  },
+  {
+    inputs: [
+      {
+        internalType: "string",
+        name: "flightNumber",
+        type: "string",
+      },
+      {
+        internalType: "string",
+        name: "carrierCode",
+        type: "string",
+      },
+      {
+        internalType: "string",
+        name: "departureStation",
+        type: "string",
+      },
+      {
+        internalType: "string",
+        name: "scheduledDepartureDate",
+        type: "string",
+      },
+    ],
+    name: "addFlightSubscription",
+    outputs: [],
+    stateMutability: "payable",
     type: "function",
   },
   {
@@ -514,29 +542,11 @@ const ContractAbi = [
     inputs: [
       {
         internalType: "string",
-        name: "flightNumber",
-        type: "string",
-      },
-    ],
-    name: "subscribe",
-    outputs: [],
-    stateMutability: "payable",
-    type: "function",
-  },
-  {
-    inputs: [
-      {
-        internalType: "string",
         name: "",
         type: "string",
       },
-      {
-        internalType: "address",
-        name: "",
-        type: "address",
-      },
     ],
-    name: "subscriptions",
+    name: "isFlightExist",
     outputs: [
       {
         internalType: "bool",
@@ -554,12 +564,60 @@ const ContractAbi = [
         name: "flightNumber",
         type: "string",
       },
+      {
+        internalType: "string",
+        name: "carrierCode",
+        type: "string",
+      },
+      {
+        internalType: "string",
+        name: "departureStation",
+        type: "string",
+      },
+      {
+        internalType: "string",
+        name: "scheduledDepartureDate",
+        type: "string",
+      },
     ],
-    name: "unSubscribe",
+    name: "removeFlightSubscription",
     outputs: [],
     stateMutability: "nonpayable",
     type: "function",
   },
+  {
+    inputs: [
+      {
+        internalType: "string",
+        name: "",
+        type: "string",
+      },
+      {
+        internalType: "string",
+        name: "",
+        type: "string",
+      },
+      {
+        internalType: "string",
+        name: "",
+        type: "string",
+      },
+      {
+        internalType: "string",
+        name: "",
+        type: "string",
+      },
+    ],
+    name: "subscriptions",
+    outputs: [
+      {
+        internalType: "bool",
+        name: "",
+        type: "bool",
+      },
+    ],
+    stateMutability: "view",
+    type: "function",
+  },
 ];
-
 export default ContractAbi;

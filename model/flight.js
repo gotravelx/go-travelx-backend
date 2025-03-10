@@ -7,16 +7,16 @@ const flightDataSchema = new mongoose.Schema(
       type: Number,
       required: true,
     },
-    flightOriginationDate: {
-      // sch departure date
+    scheduledDepartureDate: {
+
       type: String,
       required: true,
     },
-    operatingAirline: {
-      // carrierCode
+    carrierCode: {
       type: String,
       required: true,
     },
+    operatingAirline: String,
     estimatedArrivalUTC: String,
     estimatedDepartureUTC: String,
     actualDepartureUTC: String,
@@ -60,6 +60,10 @@ const flightDataSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
+    isSubscribed: {
+      type: Boolean,
+      default: false,
+    }
   },
   {
     timestamps: true,

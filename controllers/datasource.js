@@ -104,7 +104,7 @@ export const autoUpdateFlightStatus = async (flightId) => {
   updateLoop(); // Start updating immediately
 };
 
-autoUpdateAllFlights();
+
 
 export const fetchFlightFromDataSource = async (
   flightNumber,
