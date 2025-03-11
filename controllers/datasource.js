@@ -41,7 +41,7 @@ export const autoUpdateAllFlights = async () => {
 
 // Function to update flight status automatically
 export const autoUpdateFlightStatus = async (flightId) => {
-  const INTERVAL = 480000; // 8 minutes (adjust if needed)
+  const INTERVAL = 48000; // 8 minutes (adjust if needed)
 
   const updateLoop = async () => {
     try {

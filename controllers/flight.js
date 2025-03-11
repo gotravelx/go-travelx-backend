@@ -29,13 +29,12 @@ export const addFlightSubscription = async (req, res) => {
     ) {
       return res.status(400).json({ error: "Missing required parameters" });
     }
-
     // Step 1: Check if flight exists in MongoDB
-    let flightRecord = await FlightData.findOne({
-      flightNumber: Number(flightNumber),
-      carrierCode: carrierCode,
-      scheduledDepartureDate: scheduledDepartureDate,
-    });
+    const flightRecord = await FlightData.findOne(
+      { flightNumber: Number(flightNumber) } // Match by flightNumber
+    )
+      .sort({ date: -1 }) // Sort by date in descending order (most recent first)
+      .exec(); // Execute the query
 
     // If flight exists and is already subscribed
     if (flightRecord && flightRecord.isSubscribed) {
@@ -50,6 +49,7 @@ export const addFlightSubscription = async (req, res) => {
     const flightExists = await blockchainService.checkFlightExists(
       flightNumber
     );
+
     if (!flightExists) {
       console.log("[BLOCKCHAIN] Flight does not exist in the blockchain");
     }
@@ -62,9 +62,14 @@ export const addFlightSubscription = async (req, res) => {
       carrierCode
     );
 
-    console.log("------> fetch from api ", flightDataResponse.flightNumber);
-    if (!flightDataResponse)
-      return res.status(404).json("Flight is not found ");
+    // Check if flight data is null or undefined
+    if (!flightDataResponse || !flightDataResponse.flightNumber) {
+      console.log("[DATA SOURCE] Flight not found in local database");
+      console.log("------> fetch from API: undefined");
+      return res.status(404).json({ message: "Flight is not found" });
+    }
+
+    console.log("------> fetch from API:", flightDataResponse.flightNumber);
 
     const flightData = [
       flightDataResponse.flightNumber,
@@ -157,10 +162,10 @@ export const addFlightSubscription = async (req, res) => {
       arrivalGate: flightDataResponse.arrivalGate || "TBD",
       departureTerminal: flightDataResponse.departureTerminal || "TBD",
       arrivalTerminal: flightDataResponse.arrivalTerminal || "TBD",
-      flightStatus: flightDataResponse.flightStatus,
+      currentFlightStatus: flightDataResponse.flightStatus,
       statusCode: flightDataResponse.statusCode,
       equipmentModel: flightDataResponse.equipmentModel,
-      phase: flightDataResponse.phase,
+      currentPhase: flightDataResponse.phase,
       baggageClaim: flightDataResponse.baggageClaim || "TBD",
       departureDelayMinutes: flightDataResponse.departureDelayMinutes || 0,
       arrivalDelayMinutes: flightDataResponse.arrivalDelayMinutes || 0,
@@ -210,10 +215,11 @@ export const startFlightStatusMonitoring = () => {
 
       const recentFlights = await FlightData.find({
         updatedAt: { $gte: oneDayAgo },
+        isSubscribed: true, // Only check subscribed flights
       }).sort({ updatedAt: -1 });
 
       console.log(
-        `[SCHEDULER] Found ${recentFlights.length} recent flights to check for updates`
+        `[SCHEDULER] Found ${recentFlights.length} recent subscribed flights to check for updates`
       );
 
       // Track results
@@ -229,7 +235,7 @@ export const startFlightStatusMonitoring = () => {
       for (const flight of recentFlights) {
         try {
           // Skip already arrived flights
-          if (flight.phase === "in" || flight.statusCode === "IN") {
+          if (flight.currentPhase === "in" || flight.statusCode === "IN") {
             console.log(
               `[SCHEDULER] Skipping already arrived flight ${flight.flightNumber} for ${flight.scheduledDepartureDate}`
             );
@@ -237,91 +243,179 @@ export const startFlightStatusMonitoring = () => {
             continue;
           }
 
-          // Status progression update logic
-
-          let options = {};
-          if (scheduledDepartureDate || departureStation) {
-            options = {
-              departureDate: scheduledDepartureDate,
-              departure: departureStation,
-            };
-          }
-
-          // fetch form costume data source
-          // const fetchedFlightData = await fetchFlightData(flightNumber, options);
+          // Fetch latest flight data
           const newFlightData = await fetchFlightFromDataSource(
-            flightNumber,
-            options.departureDate, // Ensure this is the correct date
-            options.departure
+            flight.flightNumber,
+            flight.scheduledDepartureDate,
+            flight.departureAirport,
+            flight.carrierCode
           );
 
-          // fetch from real time api
-
-          // const newFlightData = await fetchFlightData(
-          //   flight.flightNumber,
-          //   flight.scheduledDepartureDate,
-          //   flight.carrierCode
-          // );
+          if (!newFlightData) {
+            console.log(
+              `[SCHEDULER] No data found for flight ${flight.flightNumber}`
+            );
+            continue;
+          }
 
           let shouldUpdate = false;
           let updateData = {};
+          let newPhase = "";
+          let newStatusCode = "";
 
+          // Check for phase transitions
           // not_departed -> out
           if (
-            flight.phase === "not_departed" &&
+            flight.currentPhase === "not_departed" &&
             newFlightData.phase === "out"
           ) {
             shouldUpdate = true;
-            updateData = {
-              ...newFlightData,
-              phase: "out",
-              blockchainUpdated: false,
-            };
+            newPhase = "out";
+            newStatusCode = "OUT";
           }
           // out -> off
-          else if (flight.phase === "out" && newFlightData.phase === "off") {
+          else if (
+            flight.currentPhase === "out" &&
+            newFlightData.phase === "off"
+          ) {
             shouldUpdate = true;
-            updateData = {
-              ...newFlightData,
-              phase: "off",
-              blockchainUpdated: false,
-            };
+            newPhase = "off";
+            newStatusCode = "OFF";
           }
           // off -> on
-          else if (flight.phase === "off" && newFlightData.phase === "on") {
+          else if (
+            flight.currentPhase === "off" &&
+            newFlightData.phase === "on"
+          ) {
             shouldUpdate = true;
-            updateData = {
-              ...newFlightData,
-              phase: "on",
-              blockchainUpdated: false,
-            };
+            newPhase = "on";
+            newStatusCode = "ON";
           }
           // on -> in
-          else if (flight.phase === "on" && newFlightData.phase === "in") {
+          else if (
+            flight.currentPhase === "on" &&
+            newFlightData.phase === "in"
+          ) {
             shouldUpdate = true;
-            updateData = {
-              ...newFlightData,
-              phase: "in",
-              blockchainUpdated: false,
-            };
+            newPhase = "in";
+            newStatusCode = "IN";
           }
 
           // Perform update if conditions are met
           if (shouldUpdate) {
             console.log(
-              `[SCHEDULER] Updating flight ${flight.flightNumber} for ${flight.scheduledDepartureDate}`
+              `[SCHEDULER] Updating flight ${flight.flightNumber} from ${flight.currentPhase} to ${newPhase}`
             );
 
+            // Prepare update data with new status
+            updateData = {
+              ...newFlightData,
+              currentPhase: newPhase,
+              statusCode: newStatusCode,
+            };
+
+            // Update in blockchain first - using the existing insertFlightDetails method
+            try {
+              // Set the appropriate UTC time based on the phase
+              let outTimeUTC = flight.outTimeUTC || "";
+              let offTimeUTC = flight.offTimeUTC || "";
+              let onTimeUTC = flight.onTimeUTC || "";
+              let inTimeUTC = flight.inTimeUTC || "";
+
+              // Update the appropriate time field based on new phase
+              const currentUTC = new Date().toISOString();
+              if (newPhase === "out") {
+                outTimeUTC = currentUTC;
+              } else if (newPhase === "off") {
+                offTimeUTC = currentUTC;
+              } else if (newPhase === "on") {
+                onTimeUTC = currentUTC;
+              } else if (newPhase === "in") {
+                inTimeUTC = currentUTC;
+              }
+
+              // Update these fields in our updateData for MongoDB
+              updateData.outTimeUTC = outTimeUTC;
+              updateData.offTimeUTC = offTimeUTC;
+              updateData.onTimeUTC = onTimeUTC;
+              updateData.inTimeUTC = inTimeUTC;
+
+              // Prepare the flight data array for blockchain insert/update
+              const flightData = [
+                flight.flightNumber.toString(),
+                flight.scheduledDepartureDate,
+                flight.carrierCode,
+                flight.arrivalCity || "",
+                flight.departureCity || "",
+                flight.arrivalAirport || "",
+                flight.departureAirport || "",
+                flight.operatingAirline || "",
+                flight.arrivalGate || "",
+                flight.departureGate || "",
+                newPhase, // Use the new phase as flight status
+                flight.equipmentModel || "",
+              ];
+
+              // Prepare UTC times array
+              const utcTimes = [
+                flight.actualArrivalUTC || "",
+                flight.actualDepartureUTC || "",
+                updateData.estimatedArrivalUTC || "",
+                updateData.estimatedDepartureUTC || "",
+                flight.scheduledArrivalUTCDateTime || "",
+                flight.scheduledDepartureUTCDateTime || "",
+              ];
+
+              // Prepare status array
+              const status = [
+                newStatusCode, // Use the new status code
+                newPhase, // Use the new phase as description
+                outTimeUTC,
+                offTimeUTC,
+                onTimeUTC,
+                inTimeUTC,
+              ];
+
+              console.log(
+                `[BLOCKCHAIN] Updating flight status in blockchain for flight ${flight.flightNumber}`
+              );
+
+              // Call the insertFlightDetails method to update the flight in blockchain
+              const blockchainResponse =
+                await blockchainService.insertFlightDetails(
+                  flightData,
+                  utcTimes,
+                  status
+                );
+
+              console.log(`[BLOCKCHAIN] Update response:`, blockchainResponse);
+
+              // Mark blockchain as updated
+              updateData.blockchainUpdated = true;
+              updateData.blockchainTxHash = blockchainResponse.transactionHash;
+
+              results.blockchainUpdated++;
+            } catch (blockchainError) {
+              console.error(
+                `[BLOCKCHAIN ERROR] Failed to update blockchain for flight ${flight.flightNumber}:`,
+                blockchainError.message
+              );
+
+              // Mark blockchain as needing update
+              updateData.blockchainUpdated = false;
+            }
+
             // Update in MongoDB
-            await FlightData.findByIdAndUpdate(flight._id, updateData);
+            const { _id, ...dataToUpdate } = updateData;
+            await FlightData.findByIdAndUpdate(flight._id, dataToUpdate);
 
             console.log(
-              `[SCHEDULER] Successfully updated flight ${flight.flightNumber} from ${flight.phase} to ${updateData.phase}`
+              `[SCHEDULER] Successfully updated flight ${flight.flightNumber} from ${flight.currentPhase} to ${newPhase}`
             );
             results.updated++;
           } else {
             console.log(
-              `[SCHEDULER] No update needed for flight ${flight.flightNumber}`
+              `[SCHEDULER] No status change detected for flight ${flight.flightNumber}`
             );
           }
         } catch (flightError) {
@@ -331,6 +425,88 @@ export const startFlightStatusMonitoring = () => {
           );
           results.failed++;
         }
+      }
+
+      // Handle any flights that need blockchain updates but failed previously
+      try {
+        const pendingBlockchainUpdates = await FlightData.find({
+          blockchainUpdated: false,
+          isSubscribed: true,
+        });
+
+        console.log(
+          `[SCHEDULER] Found ${pendingBlockchainUpdates.length} flights pending blockchain updates`
+        );
+
+        for (const flight of pendingBlockchainUpdates) {
+          try {
+            // Prepare the flight data array
+            const flightData = [
+              flight.flightNumber.toString(),
+              flight.scheduledDepartureDate,
+              flight.carrierCode,
+              flight.arrivalCity || "",
+              flight.departureCity || "",
+              flight.arrivalAirport || "",
+              flight.departureAirport || "",
+              flight.operatingAirline || "",
+              flight.arrivalGate || "",
+              flight.departureGate || "",
+              flight.currentPhase,
+              flight.equipmentModel || "",
+            ];
+
+            // Prepare UTC times array
+            const utcTimes = [
+              flight.actualArrivalUTC || "",
+              flight.actualDepartureUTC || "",
+              flight.estimatedArrivalUTC || "",
+              flight.estimatedDepartureUTC || "",
+              flight.scheduledArrivalUTCDateTime || "",
+              flight.scheduledDepartureUTCDateTime || "",
+            ];
+
+            // Prepare status array
+            const status = [
+              flight.statusCode || "",
+              flight.currentFlightStatus || "",
+              flight.outTimeUTC || "",
+              flight.offTimeUTC || "",
+              flight.onTimeUTC || "",
+              flight.inTimeUTC || "",
+            ];
+
+            console.log(
+              `[BLOCKCHAIN] Retrying blockchain update for flight ${flight.flightNumber}`
+            );
+
+            // Update flight status in blockchain by re-inserting the data
+            const blockchainResponse =
+              await blockchainService.insertFlightDetails(
+                flightData,
+                utcTimes,
+                status
+              );
+
+            // Mark as updated in MongoDB
+            await FlightData.findByIdAndUpdate(flight._id, {
+              blockchainUpdated: true,
+              blockchainTxHash: blockchainResponse.transactionHash,
+            });
+
+            results.blockchainUpdated++;
+          } catch (retryError) {
+            console.error(
+              `[BLOCKCHAIN ERROR] Failed to retry blockchain update for flight ${flight.flightNumber}:`,
+              retryError.message
+            );
+          }
+        }
+      } catch (pendingError) {
+        console.error(
+          `[SCHEDULER ERROR] Error processing pending blockchain updates:`,
+          pendingError.message
+        );
       }
 
       console.log(
@@ -352,6 +528,16 @@ export const startFlightStatusMonitoring = () => {
   );
   return job;
 };
+/*
+
+1. Use insertFlightDetails for updates: Your contract's insertFlightDetails function can actually be used to update existing flight data because it overwrites the data in the mappings for that flight.
+2. Keep track of flight phases: I've maintained the phase transition detection (not_departed → out → off → on → in) and mapped those to appropriate status codes.
+3. Track timestamps for each phase: As the flight progresses through different phases, we update the appropriate timestamp (outTimeUTC, offTimeUTC, onTimeUTC, inTimeUTC).
+4. Maintain blockchain transaction record: We store the transaction hash and update status in MongoDB.
+   Added retry mechanism: For flights that failed to update in the blockchain, we have a retry process.
+
+*/
+// You'll need to implement this function in your blockchainService
 
 export const getSubscribedFlight = async (req, res) => {
   try {
@@ -364,25 +550,16 @@ export const getSubscribedFlight = async (req, res) => {
       carrierCode
     );
 
-    // const flightStatus = await blockchainService.getFlightStatus(
-    //   flightNumber,
-    //   scheduledDepartureDate,
-    //   carrierCode
-    // );
-
     // Validate response to avoid sending undefined data
     if (!response) {
       return res.status(404).json({ error: "Flight details not found" });
     }
 
-    // if (!flightStatus) {
-    //   return res.status(404).json({ error: "Flight status not available" });
-    // }
+    console.log("----->", response);
 
-    // Return a well-structured response
     res.status(200).json({
       message: "Flight details retrieved successfully",
-      data: response,
+      response,
     });
   } catch (error) {
     console.error("Error fetching flight details:", error);

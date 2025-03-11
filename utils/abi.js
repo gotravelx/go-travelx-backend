@@ -73,12 +73,6 @@ const ContractAbi = [
         name: "flightStatus",
         type: "string",
       },
-      {
-        indexed: false,
-        internalType: "string",
-        name: "equipmentModel",
-        type: "string",
-      },
     ],
     name: "FlightDataSet",
     type: "event",
@@ -187,7 +181,7 @@ const ContractAbi = [
       {
         indexed: false,
         internalType: "string",
-        name: "flight_times",
+        name: "currentFlightStatusTime",
         type: "string",
       },
       {
@@ -538,37 +532,87 @@ const ContractAbi = [
         name: "",
         type: "tuple",
       },
-    ],
-    stateMutability: "view",
-    type: "function",
-  },
-  {
-    inputs: [
       {
-        internalType: "string",
-        name: "flightNumber",
-        type: "string",
+        components: [
+          {
+            internalType: "string",
+            name: "actualArrivalUTC",
+            type: "string",
+          },
+          {
+            internalType: "string",
+            name: "actualDepartureUTC",
+            type: "string",
+          },
+          {
+            internalType: "string",
+            name: "estimatedArrivalUTC",
+            type: "string",
+          },
+          {
+            internalType: "string",
+            name: "estimatedDepartureUTC",
+            type: "string",
+          },
+          {
+            internalType: "string",
+            name: "scheduledArrivalUTC",
+            type: "string",
+          },
+          {
+            internalType: "string",
+            name: "scheduledDepartureUTC",
+            type: "string",
+          },
+        ],
+        internalType: "struct FlightStatusOracle.UtcTime",
+        name: "",
+        type: "tuple",
       },
       {
-        internalType: "string",
-        name: "scheduledDepartureDate",
-        type: "string",
+        components: [
+          {
+            internalType: "string",
+            name: "flightStatusCode",
+            type: "string",
+          },
+          {
+            internalType: "string",
+            name: "flightStatusDescription",
+            type: "string",
+          },
+          {
+            internalType: "string",
+            name: "outUtc",
+            type: "string",
+          },
+          {
+            internalType: "string",
+            name: "offUtc",
+            type: "string",
+          },
+          {
+            internalType: "string",
+            name: "onUtc",
+            type: "string",
+          },
+          {
+            internalType: "string",
+            name: "inUtc",
+            type: "string",
+          },
+        ],
+        internalType: "struct FlightStatusOracle.statuss",
+        name: "",
+        type: "tuple",
       },
-      {
-        internalType: "string",
-        name: "carrierCode",
-        type: "string",
-      },
-    ],
-    name: "getFlightStatus",
-    outputs: [
       {
         internalType: "string",
         name: "",
         type: "string",
       },
     ],
-    stateMutability: "nonpayable",
+    stateMutability: "view",
     type: "function",
   },
   {
@@ -648,16 +692,20 @@ const ContractAbi = [
         name: "",
         type: "string",
       },
+    ],
+    name: "setStatus",
+    outputs: [
       {
         internalType: "string",
         name: "",
         type: "string",
       },
-      {
-        internalType: "string",
-        name: "",
-        type: "string",
-      },
+    ],
+    stateMutability: "view",
+    type: "function",
+  },
+  {
+    inputs: [
       {
         internalType: "string",
         name: "",
@@ -676,6 +724,4 @@ const ContractAbi = [
     type: "function",
   },
 ];
-
 export default ContractAbi;
-  

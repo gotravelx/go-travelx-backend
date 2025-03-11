@@ -20,6 +20,8 @@ const flightDataSchema = new mongoose.Schema(
     estimatedDepartureUTC: String,
     actualDepartureUTC: String,
     actualArrivalUTC: String,
+    scheduledArrivalUTCDateTime: String,
+    scheduledDepartureUTCDateTime: String,
     outTimeUTC: String,
     offTimeUTC: String,
     onTimeUTC: String,
@@ -32,10 +34,10 @@ const flightDataSchema = new mongoose.Schema(
     arrivalGate: String,
     departureTerminal: String,
     arrivalTerminal: String,
-    flightStatus: String,
+    currentFlightStatus: String,
     statusCode: String,
     equipmentModel: String,
-    phase: {
+    currentPhase: {
       type: String,
       enum: ["not_departed", "out", "off", "on", "in"],
       default: "not_departed",
@@ -54,9 +56,10 @@ const flightDataSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
-    scheduledArrivalUTCDateTime: String,
-    scheduledDepartureUTCDateTime: String,
-    blockchainTxHash: String,
+
+    blockchainTxHash: {
+      type: String,
+    },
     blockchainUpdated: {
       type: Boolean,
       default: false,

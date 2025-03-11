@@ -129,6 +129,8 @@ export const fetchFlightData = async (flightNumber, options = {}) => {
           inTimeUTC: segment.InUTCTime || "",
           arrivalCity: segment.ArrivalAirport.Address.City,
           departureCity: segment.DepartureAirport.Address.City,
+          arrivalAirport: segment.ArrivalAirport.IATACode,
+          departureAirport: segment.DepartureAirport.IATACode,
           departureGate: segment.DepartureGate || "TBD",
           arrivalGate: segment.ArrivalGate || "TBD",
           departureTerminal: segment.DepartureTerminal || "TBD",

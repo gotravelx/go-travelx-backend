@@ -161,19 +161,33 @@ class FlightBlockchainService {
 
       // Create structured return object
       return {
-        flightNumber: flightData.flightNumber,
-        scheduledDepartureDate: flightData.scheduledDepartureDate,
-        carrierCode: flightData.carrierCode,
-        arrivalCity: flightData.arrivalCity,
-        departureCity: flightData.departureCity,
-        arrivalAirport: flightData.arrivalAirport,
-        departureAirport: flightData.departureAirport,
-        operatingAirlineCode: flightData.operatingAirlineCode,
-        arrivalGate: flightData.arrivalGate,
-        departureGate: flightData.departureGate,
-        flightStatus: flightData.flightStatus,
-        equipmentModel: flightData.equipmentModel,
+        flightNumber: flightData[0].flightNumber,
+        flightDepartureDate: flightData[0].scheduledDepartureDate,
+        carrierCode: flightData[0].carrierCode,
+        arrivalCity: flightData[0].arrivalCity,
+        departureCity: flightData[0].departureCity,
+        arrivalAirport: flightData[0].arrivalAirport,
+        departureAirport: flightData[0].departureAirport,
+        operatingAirlineCode: flightData[0].operatingAirlineCode,
+        arrivalGate: flightData[0].arrivalGate,
+        departureGate: flightData[0].departureGate,
+        flightStatus: flightData[0].flightStatus,
+        equipmentModel: flightData[0].equipmentModel,
+        estimatedDepartureUTC: flightData[1].estimatedDepartureUTC,
+        estimatedArrivalUTC: flightData[1].actualArrivalUTC,
+        actualDepartureUTC: flightData[1].actualDepartureUTC,
+        actualDepartureUTC: flightData[1].estimatedArrivalUTC,
+        actualArrivalUTC: flightData[1].actualArrivalUTC,
+        scheduledArrivalUTCDateTime: flightData[1].scheduledArrivalUTC,
+        scheduledDepartureUTCDateTime: flightData[1].scheduledDepartureUTC,
+        statusCode: flightData[2].flightStatusCode,
+        flightStatus: flightData[2].flightStatusDescription,
+        outTimeUTC: flightData[2].outUtc,
+        offTimeUTC: flightData[2].offUtc,
+        onTimeUTC: flightData[2].onUtc,
+        inTimeUTC: flightData[2].inUtc,
       };
+      // return flightData;
     } catch (error) {
       console.error("Error fetching flight details:", error);
 
@@ -213,44 +227,46 @@ class FlightBlockchainService {
       scheduledDepartureDate = scheduledDepartureDate.toString();
       carrierCode = carrierCode.toString();
 
-      // Call the smart contract function
+      // Call the smart contract function (assumes it's a view function)
       const statusString = await this.contractWithSigner.getFlightStatus(
         flightNumber,
         scheduledDepartureDate,
         carrierCode
       );
 
-      // Log response
       console.log("Blockchain Response:", statusString);
 
-      // Ensure the transaction exists
-      if (!statusString.hash) {
-        throw new Error("Invalid transaction response from blockchain");
+      // Ensure the response is valid
+      if (!statusString) {
+        throw new Error("Invalid response from blockchain");
       }
 
-      // Fetch transaction receipt
+      console.log(`Received flight status for ${flightNumber}:`, statusString);
+
+      // If `getFlightStatus` is NOT a transaction, skip receipt fetching
+      if (!statusString.hash) {
+        return { currentStatus: statusString, statusHistory: [] };
+      }
+
+      // Fetch transaction receipt (only for write transactions)
       const tx = await this.provider.getTransaction(statusString.hash);
       const receipt = await tx.wait();
 
-      // Log the full transaction receipt
       console.log("Transaction Receipt:", JSON.stringify(receipt, null, 2));
 
-      // Validate that receipt contains events
       if (!receipt.events) {
         throw new Error("No events found in the transaction receipt.");
       }
 
       // Filter flight status events
       const statusEvents = receipt.events.filter(
-        (event) => event.event === "currentFlightStatus" // Adjust this based on your contract event name
+        (event) => event.event === "currentFlightStatus" // Verify the event name
       );
 
-      // Check if events exist
       if (statusEvents.length === 0) {
         throw new Error("No matching flight status events found.");
       }
 
-      // Map status history
       const statusHistory = statusEvents.map((event) => {
         const {
           flightNumber,
@@ -605,37 +621,22 @@ class FlightBlockchainService {
    * @param {string} scheduledDepartureDate
    * @returns {Promise<boolean>} Subscription status
    */
-  async checkSubscriptionStatus(
-    flightNumber,
-    carrierCode,
-    departureAirport,
-    scheduledDepartureDate
-  ) {
+  async checkSubscriptionStatus(flightNumber) {
     try {
       // Validate parameters
-      if (
-        !flightNumber ||
-        !carrierCode ||
-        !departureAirport ||
-        !scheduledDepartureDate
-      ) {
+      if (!flightNumber) {
         throw new Error("Missing required parameters for subscription check");
       }
 
       // Convert inputs to strings
       flightNumber = flightNumber.toString();
-      carrierCode = carrierCode.toString();
-      departureAirport = departureAirport.toString();
-      scheduledDepartureDate = scheduledDepartureDate.toString();
+      // carrierCode = carrierCode.toString();
+      // departureAirport = departureAirport.toString();
+      // scheduledDepartureDate = scheduledDepartureDate.toString();
 
       // Call the subscriptions mapping directly
       // Note: This requires exposing the subscriptions mapping as public in the contract
-      const isSubscribed = await this.contract.subscriptions(
-        flightNumber,
-        carrierCode,
-        departureAirport,
-        scheduledDepartureDate
-      );
+      const isSubscribed = await this.contract.subscriptions(flightNumber);
 
       return isSubscribed;
     } catch (error) {
