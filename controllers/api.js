@@ -18,7 +18,7 @@ export const fetchFlightData = async (flightNumber, options = {}) => {
     }
     console.log("--------------------------------->", process.env.API);
     // Build the URL with mandatory and optional parameters
-    let url = `${process.env.API}=${flightNumber}`;
+    let url = `${process.env.API}?fltNbr=${flightNumber}`;
 
     // Add optional parameters if provided
     if (options.departureDate) {
@@ -184,5 +184,33 @@ export const fetchFlightData = async (flightNumber, options = {}) => {
         description: error.message,
       },
     };
+  }
+};
+
+export const fetchFlightDetails = async (req, res) => {
+  try {
+    const { flightNumber } = req.params;
+    const { departureDate, departure } = req.query;
+
+    // Call the flight data API function
+    const flightData = await fetchFlightData(flightNumber, {
+      departureDate,
+      departure,
+    });
+
+    if (flightData.success) {
+      res.status(200).json(flightData);
+    } else {
+      res.status(404).json(flightData);
+    }
+  } catch (error) {
+    console.error("Error fetching flight details:", error);
+    res.status(500).json({
+      success: false,
+      errorMessage: "Server error while fetching flight details",
+      errorDetails: {
+        description: error.message,
+      },
+    });
   }
 };
