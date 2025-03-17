@@ -1,14 +1,18 @@
 import express from "express";
-import { getHistoricalFlights, searchFlight } from "../controllers/flight.js";
-const router = express.Router();  // Use express.Router() to define routes
+import {
+  addFlightSubscription,
+  getSubscribedFlight,
+} from "../controllers/flight.js";
+import { fetchFlightDetails } from "../controllers/api.js";
+const router = express.Router(); // Use express.Router() to define routes
 
 // Import the insertFlight controller
 
 // Define a POST route to insert a flight
-router.post("/search-flight", searchFlight);
+router.post("/add-flight-subscription", addFlightSubscription);
+router.post("/get-flight-details", getSubscribedFlight);
 
-// Route to get historical flight data
-router.get('/historical', getHistoricalFlights);
+router.get("/get-flight-status/:flightNumber", fetchFlightDetails);
 
 // Export the router
 export default router;
