@@ -37,7 +37,7 @@ const flightDataSchema = new mongoose.Schema(
     currentFlightStatus: String,
     statusCode: String,
     equipmentModel: String,
-    currentPhase: {
+    currentStatus: {
       type: String,
       enum: ["not_departed", "out", "off", "on", "in"],
       default: "not_departed",
