@@ -29,6 +29,11 @@ export const addFlightSubscription = async (req, res) => {
     ) {
       return res.status(400).json({ error: "Missing required parameters" });
     }
+
+    const flightRec = await blockchainService.checkSubscriptionStatus(
+      flightNumber
+    );
+    console.log("subscription-------------->", flightRec);
     // Step 1: Check if flight exists in MongoDB
     const flightRecord = await FlightData.findOne(
       { flightNumber: Number(flightNumber) } // Match by flightNumber
@@ -65,8 +70,9 @@ export const addFlightSubscription = async (req, res) => {
     // Check if flight data is null or undefined
     if (!flightDataResponse || !flightDataResponse.flightNumber) {
       console.log("[DATA SOURCE] Flight not found in local database");
-      console.log("------> fetch from API: undefined");
-      return res.status(404).json({ message: "Flight is not found" });
+      return res
+        .status(200)
+        .json({ message: "Flight is not found", data: null });
     }
 
     console.log("------> fetch from API:", flightDataResponse.flightNumber);
@@ -93,6 +99,9 @@ export const addFlightSubscription = async (req, res) => {
       flightDataResponse.estimatedDepartureUTC || "",
       flightDataResponse.scheduledArrivalUTCDateTime || "",
       flightDataResponse.scheduledDepartureUTCDateTime || "",
+      flightDataResponse.arrivalDelayMinutes.toString() || "",
+      flightDataResponse.departureDelayMinutes.toString() || "",
+      flightDataResponse.baggageClaim.toString() || "",
     ];
 
     const status = [
@@ -165,7 +174,7 @@ export const addFlightSubscription = async (req, res) => {
       currentFlightStatus: flightDataResponse.flightStatus,
       statusCode: flightDataResponse.statusCode,
       equipmentModel: flightDataResponse.equipmentModel,
-      currentPhase: flightDataResponse.phase,
+      currentStatus: flightDataResponse.phase,
       baggageClaim: flightDataResponse.baggageClaim || "TBD",
       departureDelayMinutes: flightDataResponse.departureDelayMinutes || 0,
       arrivalDelayMinutes: flightDataResponse.arrivalDelayMinutes || 0,
@@ -235,7 +244,7 @@ export const startFlightStatusMonitoring = () => {
       for (const flight of recentFlights) {
         try {
           // Skip already arrived flights
-          if (flight.currentPhase === "in" || flight.statusCode === "IN") {
+          if (flight.currentStatus === "in" || flight.statusCode === "IN") {
             console.log(
               `[SCHEDULER] Skipping already arrived flight ${flight.flightNumber} for ${flight.scheduledDepartureDate}`
             );
@@ -266,7 +275,7 @@ export const startFlightStatusMonitoring = () => {
           // Check for phase transitions
           // not_departed -> out
           if (
-            flight.currentPhase === "not_departed" &&
+            flight.currentStatus === "not_departed" &&
             newFlightData.phase === "out"
           ) {
             shouldUpdate = true;
@@ -275,7 +284,7 @@ export const startFlightStatusMonitoring = () => {
           }
           // out -> off
           else if (
-            flight.currentPhase === "out" &&
+            flight.currentStatus === "out" &&
             newFlightData.phase === "off"
           ) {
             shouldUpdate = true;
@@ -284,7 +293,7 @@ export const startFlightStatusMonitoring = () => {
           }
           // off -> on
           else if (
-            flight.currentPhase === "off" &&
+            flight.currentStatus === "off" &&
             newFlightData.phase === "on"
           ) {
             shouldUpdate = true;
@@ -293,7 +302,7 @@ export const startFlightStatusMonitoring = () => {
           }
           // on -> in
           else if (
-            flight.currentPhase === "on" &&
+            flight.currentStatus === "on" &&
             newFlightData.phase === "in"
           ) {
             shouldUpdate = true;
@@ -304,13 +313,13 @@ export const startFlightStatusMonitoring = () => {
           // Perform update if conditions are met
           if (shouldUpdate) {
             console.log(
-              `[SCHEDULER] Updating flight ${flight.flightNumber} from ${flight.currentPhase} to ${newPhase}`
+              `[SCHEDULER] Updating flight ${flight.flightNumber} from ${flight.currentStatus} to ${newPhase}`
             );
 
             // Prepare update data with new status
             updateData = {
               ...newFlightData,
-              currentPhase: newPhase,
+              currentStatus: newPhase,
               statusCode: newStatusCode,
             };
 
@@ -410,7 +419,7 @@ export const startFlightStatusMonitoring = () => {
             await FlightData.findByIdAndUpdate(flight._id, dataToUpdate);
 
             console.log(
-              `[SCHEDULER] Successfully updated flight ${flight.flightNumber} from ${flight.currentPhase} to ${newPhase}`
+              `[SCHEDULER] Successfully updated flight ${flight.flightNumber} from ${flight.currentStatus} to ${newPhase}`
             );
             results.updated++;
           } else {
@@ -452,7 +461,7 @@ export const startFlightStatusMonitoring = () => {
               flight.operatingAirline || "",
               flight.arrivalGate || "",
               flight.departureGate || "",
-              flight.currentPhase,
+              flight.currentStatus,
               flight.equipmentModel || "",
             ];
 
@@ -552,15 +561,23 @@ export const getSubscribedFlight = async (req, res) => {
 
     // Validate response to avoid sending undefined data
     if (!response) {
-      return res.status(404).json({ error: "Flight details not found" });
+      return res.status(200).json({ message: "Flight details not found" });
     }
-
-    console.log("----->", response);
 
     res.status(200).json({
       message: "Flight details retrieved successfully",
       response,
     });
+  } catch (error) {
+    console.error("Error fetching flight details:", error);
+    res
+      .status(500)
+      .json({ error: "Internal server error", details: error.message });
+  }
+};
+
+export const getAllSubscribedFlight = async (req, res) => {
+  try {
   } catch (error) {
     console.error("Error fetching flight details:", error);
     res

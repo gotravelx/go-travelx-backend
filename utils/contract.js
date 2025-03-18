@@ -159,6 +159,19 @@ class FlightBlockchainService {
         carrierCode
       );
 
+      console.log(`[BLOCKCHAIN] get flight from blockchain ${flightData}`);
+
+      if (!flightData || flightData.length === 0) {
+        console.log("[BLOCKCHAIN] Flight data is empty or undefined.");
+        return null;
+      }
+
+      // Ensure the data structure is valid before accessing properties
+      if (!flightData[0] || !flightData[0].flightNumber) {
+        console.log("[BLOCKCHAIN] Invalid flight data structure.");
+        return null;
+      }
+
       // Create structured return object
       return {
         flightNumber: flightData[0].flightNumber,
@@ -186,6 +199,9 @@ class FlightBlockchainService {
         offTimeUTC: flightData[2].offUtc,
         onTimeUTC: flightData[2].onUtc,
         inTimeUTC: flightData[2].inUtc,
+        departureDelayMinutes: flightData[2].departureDelayMinutes,
+        arrivalDelayMinutes: flightData[2].arrivalDelayMinutes,
+        baggageClaim: flightData[2].baggageClaim,
       };
       // return flightData;
     } catch (error) {
@@ -406,7 +422,7 @@ class FlightBlockchainService {
       if (!flightData || flightData.length !== 12) {
         throw new Error("flightData array must contain exactly 12 elements");
       }
-      if (!utcTimes || utcTimes.length !== 6) {
+      if (!utcTimes || utcTimes.length !== 9) {
         throw new Error("utcTimes array must contain exactly 6 elements");
       }
       if (!status || status.length !== 6) {

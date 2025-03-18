@@ -256,6 +256,21 @@ const ContractAbi = [
         name: "scheduledDepartureUTC",
         type: "string",
       },
+      {
+        internalType: "string",
+        name: "arrivalDelayMinutes",
+        type: "string",
+      },
+      {
+        internalType: "string",
+        name: "departureDelayMinutes",
+        type: "string",
+      },
+      {
+        internalType: "string",
+        name: "baggageClaim",
+        type: "string",
+      },
     ],
     stateMutability: "view",
     type: "function",
@@ -564,6 +579,21 @@ const ContractAbi = [
             name: "scheduledDepartureUTC",
             type: "string",
           },
+          {
+            internalType: "string",
+            name: "arrivalDelayMinutes",
+            type: "string",
+          },
+          {
+            internalType: "string",
+            name: "departureDelayMinutes",
+            type: "string",
+          },
+          {
+            internalType: "string",
+            name: "baggageClaim",
+            type: "string",
+          },
         ],
         internalType: "struct FlightStatusOracle.UtcTime",
         name: "",
@@ -724,4 +754,5 @@ const ContractAbi = [
     type: "function",
   },
 ];
+
 export default ContractAbi;

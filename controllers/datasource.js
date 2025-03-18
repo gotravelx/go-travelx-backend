@@ -41,7 +41,7 @@ export const autoUpdateAllFlights = async () => {
 
 // Function to update flight status automatically
 export const autoUpdateFlightStatus = async (flightId) => {
-  const INTERVAL = 480000; // 8 minutes (adjust if needed)
+  const INTERVAL = 300000; // 5 minutes
 
   const updateLoop = async () => {
     try {
@@ -58,18 +58,24 @@ export const autoUpdateFlightStatus = async (flightId) => {
         case "not_departed":
           nextPhase = "out";
           updateData.outTimeUTC = new Date().toISOString();
+          updateData.flightStatus = "Departed from gate";
           break;
         case "out":
           nextPhase = "off";
           updateData.offTimeUTC = new Date().toISOString();
+          updateData.actualDepartureUTC = new Date().toISOString(); // Added actual departure time
+          updateData.flightStatus = "In air";
           break;
         case "off":
           nextPhase = "on";
           updateData.onTimeUTC = new Date().toISOString();
+          updateData.flightStatus = "Landing";
           break;
         case "on":
           nextPhase = "in";
           updateData.inTimeUTC = new Date().toISOString();
+          updateData.actualArrivalUTC = new Date().toISOString(); // Added actual arrival time
+          updateData.flightStatus = "Arrived at gate";
           break;
         case "in":
           console.log(`Flight ${flight.flightNumber} has already arrived.`);
@@ -91,7 +97,7 @@ export const autoUpdateFlightStatus = async (flightId) => {
       });
 
       console.log(
-        `Flight ${flight.flightNumber} updated  to phase: ${nextPhase}`
+        `Flight ${flight.flightNumber} updated to phase: ${nextPhase}`
       );
 
       // Schedule next update only if not arrived
@@ -105,7 +111,6 @@ export const autoUpdateFlightStatus = async (flightId) => {
 
   updateLoop(); // Start updating immediately
 };
-
 export const fetchFlightFromDataSource = async (
   flightNumber,
   scheduledDepartureDate,
@@ -128,6 +133,18 @@ export const fetchFlightFromDataSource = async (
     ) {
       throw new Error("Missing required parameters for flight data fetch");
     }
+
+    console.log(
+      "------->",
+      "flightNumber:",
+      Number(flightNumber),
+      "scheduledDepartureDate:",
+      scheduledDepartureDate.trim(),
+      "departureAirport:",
+      departureAirport.trim().toUpperCase(),
+      "carrierCode:",
+      carrierCode.trim().toUpperCase()
+    );
 
     const flight = await DataSource.findOne({
       flightNumber: Number(flightNumber), // Convert to number
