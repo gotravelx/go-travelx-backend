@@ -668,7 +668,7 @@ class FlightBlockchainService {
   async listAvailableFlights() {
     try {
       // Get the length of the flightNumbers array
-      const length = await this.contract.flightNumbers.length();
+      const length = await this.contract.flightNumber.length();
 
       // Convert BigNumber to number
       const count = length.toNumber();
