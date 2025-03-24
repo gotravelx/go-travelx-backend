@@ -576,8 +576,11 @@ export const getSubscribedFlight = async (req, res) => {
   }
 };
 
-export const getAllSubscribedFlight = async (req, res) => {
+export const getAllSubscribedFlights = async (req, res) => {
   try {
+    const flights = await blockchainService.listAvailableFlights();
+
+    res.status(200).json(flights);
   } catch (error) {
     console.error("Error fetching flight details:", error);
     res
