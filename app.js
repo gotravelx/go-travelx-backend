@@ -3,9 +3,9 @@ import express from "express";
 import bodyParser from "body-parser";
 import cookieParser from "cookie-parser";
 import cors from "cors";
-import router from "./routes/flight.js";
+import flightRouter from "./routes/flight.js";
 import { connectDb } from "./config/db.config.js";
-import dataSource from "./routes/datasource.js";
+
 // dotenv configuration
 dotenv.config();
 const app = express();
@@ -18,8 +18,7 @@ app.use(express.static("public"));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-app.use("/v1/flights", router);
-app.use("/v1/data-source", dataSource);
+app.use("/v1/flights", flightRouter);
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, async () => {

@@ -9,7 +9,7 @@ const walletAddress = process.env.WALLET_ADDRESS;
 const privateKey = process.env.PRIVATE_KEY;
 const blockchainProvider = process.env.PRIMARY_CAMINO_PROVIDER;
 
-// Create blockchain service instance
+//Create blockchain service instance
 const blockchainService = createFlightBlockchainService(
   blockchainProvider,
   contractAddress,
@@ -20,8 +20,9 @@ const blockchainService = createFlightBlockchainService(
 
 // Optional: Check connectivity before operations
 const isConnected = await blockchainService.diagnosticContractCheck();
+
 if (!isConnected) {
   console.error("Contract connectivity check failed");
-}
+} else console.log("Blockchain service initialized successfully");
 
 export default blockchainService;

@@ -28,19 +28,21 @@ const flightDataSchema = new mongoose.Schema(
     inTimeUTC: String,
     arrivalCity: String,
     departureCity: String,
+    arrivalStatus: String,
+    departureStatus: String,
     arrivalAirport: String,
     departureAirport: String,
     departureGate: String,
     arrivalGate: String,
     departureTerminal: String,
     arrivalTerminal: String,
-    currentFlightStatus: String,
-    statusCode: String,
     equipmentModel: String,
-    currentStatus: {
+    statusCode: String,
+    flightStatusDescription: String,
+    currentFlightStatus: {
       type: String,
-      enum: ["not_departed", "out", "off", "on", "in"],
-      default: "not_departed",
+      enum: ["ndpt", "out", "off", "on", "in"],
+      default: "ndpt",
     },
     baggageClaim: String,
     departureDelayMinutes: {
@@ -51,6 +53,12 @@ const flightDataSchema = new mongoose.Schema(
       type: Number,
       default: 0,
     },
+    MarketedFlightSegment: [
+      {
+        MarketingAirlineCode: String,
+        FlightNumber: String,
+      },
+    ],
     boardingTime: String,
     isCanceled: {
       type: Boolean,
@@ -71,7 +79,6 @@ const flightDataSchema = new mongoose.Schema(
   },
   {
     timestamps: true,
-    // Create a compound index for efficient queries
     index: {
       flightNumber: 1,
       flightOriginationDate: 1,

@@ -1,6 +1,8 @@
 import fetch from "node-fetch";
 import https from "https";
 import dotenv from "dotenv";
+import FlightSubscription from "../model/flight-subscription.js";
+import DataSource from "../model/data-source.js";
 const agent = new https.Agent({
   rejectUnauthorized: false,
 });
@@ -82,13 +84,23 @@ export const fetchFlightData = async (flightNumber, options = {}) => {
         const statusCode = flightStatusData?.Code || "Unknown";
         const isCanceled = statusCode === "CNCL";
 
+        const arrivalFlightStatusData = segment.FlightStatuses?.find(
+          (status) => status.StatusType === "ArrivalStatus"
+        );
+        const arrivalStatus = arrivalFlightStatusData?.Description || "Unknown";
+
+        const departureFlightStatusData = segment.FlightStatuses?.find(
+          (status) => status.StatusType === "DepartureStatus"
+        );
+        const departureStatus =
+          departureFlightStatusData?.Description || "Unknown";
+
+        const marketedFlightSegment = scheduledSegment?.MarketedFlightSegment;
+
         const operatingAirline =
           segment.OperatingAirline?.IATACode || "Unknown";
-        const flightOriginationDate =
-          data.flightStatusResp.Flight?.FlightOriginationDate ||
-          new Date().toISOString().split("T")[0];
 
-        // Flight phase logic
+        // Flight currentFlightStatus logic
         const flightIndicators = segment.Characteristic?.reduce((acc, char) => {
           if (
             [
@@ -104,12 +116,12 @@ export const fetchFlightData = async (flightNumber, options = {}) => {
           return acc;
         }, {});
 
-        let phase = "not_departed";
-        if (flightIndicators?.FltInInd) phase = "in";
-        else if (flightIndicators?.FltOnInd) phase = "on";
-        else if (flightIndicators?.FltOffInd) phase = "off";
-        else if (flightIndicators?.FltOutInd) phase = "out";
-        else if (flightIndicators?.FltCnclInd) phase = "canceled";
+        let currentFlightStatus = "ndpt";
+        if (flightIndicators?.FltInInd) currentFlightStatus = "in";
+        else if (flightIndicators?.FltOnInd) currentFlightStatus = "on";
+        else if (flightIndicators?.FltOffInd) currentFlightStatus = "off";
+        else if (flightIndicators?.FltOutInd) currentFlightStatus = "out";
+        else if (flightIndicators?.FltCnclInd) currentFlightStatus = "canceled";
 
         // Prepare flight data
         const flightData = {
@@ -129,6 +141,8 @@ export const fetchFlightData = async (flightNumber, options = {}) => {
           inTimeUTC: segment.InUTCTime || "",
           arrivalCity: segment.ArrivalAirport.Address.City,
           departureCity: segment.DepartureAirport.Address.City,
+          arrivalStatus,
+          departureStatus,
           arrivalAirport: segment.ArrivalAirport.IATACode,
           departureAirport: segment.DepartureAirport.IATACode,
           departureGate: segment.DepartureGate || "TBD",
@@ -139,7 +153,7 @@ export const fetchFlightData = async (flightNumber, options = {}) => {
           flightStatus,
           statusCode,
           equipmentModel: segment.Equipment.Model.Description,
-          phase,
+          currentFlightStatus,
           baggageClaim: segment.ArrivalBagClaimUnit?.trim() || "TBD",
           departureDelayMinutes: segment.DepartureDelayMinutes
             ? parseInt(segment.DepartureDelayMinutes, 10)
@@ -155,6 +169,7 @@ export const fetchFlightData = async (flightNumber, options = {}) => {
           isCanceled,
           scheduledArrivalUTCDateTime: scheduledSegment?.ArrivalUTCDateTime,
           scheduledDepartureUTCDateTime: scheduledSegment?.DepartureUTCDateTime,
+          marketedFlightSegment,
         };
 
         return flightData;
@@ -192,25 +207,162 @@ export const fetchFlightDetails = async (req, res) => {
     const { flightNumber } = req.params;
     const { departureDate, departure } = req.query;
 
+    // Assuming walletAddress is sent via request headers or query
+    const walletAddress =
+      req.headers["wallet-address"] || req.query.walletAddress;
+
+    if (!walletAddress) {
+      return res.status(400).json({
+        success: false,
+        errorMessage: "Wallet address is required",
+      });
+    }
+
     // Call the flight data API function
     const flightData = await fetchFlightData(flightNumber, {
       departureDate,
       departure,
     });
 
+    // Check if the user is subscribed to the flight
+    const subscription = await FlightSubscription.findOne({
+      walletAddress,
+      flightNumber,
+      departureAirport: departure, // Assuming the 'departure' field is the airport code
+    });
+
+    const isSubscribed = !!subscription; // Check if subscription exists
+
+    // Create a new flight data object, adding isSubscribed
+    const updatedFlightData = {
+      ...flightData, // Spread the existing flightData
+      isSubscribed: isSubscribed, // Add or update the isSubscribed field
+    };
+
+    // Send the response with updated flight data
     if (flightData.success) {
-      res.status(200).json(flightData);
+      return res.status(200).json({
+        flightData: updatedFlightData, // Send the updated flight data with isSubscribed field
+      });
     } else {
-      res.status(404).json(flightData);
+      return res.status(404).json({
+        errorMessage: "Flight data not found.",
+        flightData: updatedFlightData, // Even if flight data is not found, send the updated flight data
+      });
     }
   } catch (error) {
     console.error("Error fetching flight details:", error);
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       errorMessage: "Server error while fetching flight details",
       errorDetails: {
         description: error.message,
       },
     });
+  }
+};
+
+export const fetchFlightStatus = async (req, res) => {
+  try {
+    const { flightNumber } = req.params;
+    const { departureDate, departure } = req.query;
+
+    // Assuming walletAddress is sent via request headers or query
+    const walletAddress =
+      req.headers["wallet-address"] || req.query.walletAddress;
+
+    if (!walletAddress) {
+      return res.status(400).json({
+        success: false,
+        errorMessage: "Wallet address is required",
+      });
+    }
+
+    // Fetch flight data using Mongoose query
+    const flightData = await DataSource.findOne({
+      flightNumber: flightNumber,
+      scheduledDepartureDate: departureDate,
+      departureAirport: departure,
+    });
+
+    // If no flight data found
+    if (!flightData) {
+      return res.status(404).json({
+        success: false,
+        errorMessage: "Flight data not found.",
+      });
+    }
+
+    // Check if the user is subscribed to the flight
+    const subscription = await FlightSubscription.findOne({
+      walletAddress,
+      flightNumber,
+      departureAirport: departure,
+    });
+
+    const isSubscribed = !!subscription; // Check if subscription exists
+
+    // Create a new flight data object, adding isSubscribed
+    const updatedFlightData = {
+      ...flightData.toObject(), // Convert Mongoose document to plain object
+      isSubscribed: isSubscribed,
+    };
+
+    // Send the response with updated flight data
+    return res.status(200).json({
+      success: true,
+      flightData: updatedFlightData,
+    });
+  } catch (error) {
+    console.error("Error fetching flight details:", error);
+    return res.status(500).json({
+      success: false,
+      errorMessage: "Server error while fetching flight details",
+      errorDetails: {
+        description: error.message,
+      },
+    });
+  }
+};
+
+export const fetchFlightStatusData = async (
+  flightNumber,
+  scheduledDepartureDate,
+  departureAirport,
+  walletAddress
+) => {
+  try {
+    if (!walletAddress) {
+      return res.status(400).json({
+        success: false,
+        errorMessage: "Wallet address is required",
+      });
+    }
+
+    console.log(
+      "fetchFlightStatusData --------->",
+      flightNumber,
+      scheduledDepartureDate,
+      departureAirport,
+      walletAddress
+    );
+
+    // Fetch flight data using Mongoose query
+    const flightData = await DataSource.findOne({
+      flightNumber,
+      scheduledDepartureDate,
+      departureAirport,
+    });
+
+    console.log(">---------------- flightData", flightData);
+
+    // If no flight data found
+    if (!flightData) {
+      return null;
+    }
+
+    return flightData;
+  } catch (error) {
+    return null;
   }
 };
