@@ -1,5 +1,4 @@
 import mongoose from "mongoose";
-import { autoUpdateAllFlights } from "../controllers/datasource.js";
 
 const connectDb = async () => {
   try {
@@ -11,7 +10,6 @@ const connectDb = async () => {
       connection.connection.host,
       connection.connection.name
     );
-    await autoUpdateAllFlights();
   } catch (error) {
     console.log("Database connection failed");
     process.exit(1);
