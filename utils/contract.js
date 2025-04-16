@@ -36,12 +36,10 @@ export class FlightBlockchainService {
   async diagnosticContractCheck() {
     try {
       // Perform a simple read-only contract interaction to check connectivity
-      // For example, you could check if the contract exists or has a specific method
       const checkMethod = async () => {
         try {
-          // Replace with an actual read-only method from your contract
-          // This is just an example, use an appropriate method from your contract
-          await this.contract.flightNumbers(0);
+          // Use isFlightExist with an empty string as a safe test
+          await this.contract.isFlightExist("");
           return true;
         } catch (error) {
           console.error("Contract connectivity check failed:", error);

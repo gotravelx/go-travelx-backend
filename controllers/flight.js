@@ -136,6 +136,10 @@ const prepareFlightDataForBlockchain = (flightData) => {
     throw new Error("Missing required flight data fields");
   }
 
+  const currentFlightStatus = flightData.currentFlightStatus
+    .toString()
+    .toUpperCase();
+
   const blockchainFlightData = [
     flightData.flightNumber,
     flightData.scheduledDepartureDate,
@@ -147,7 +151,7 @@ const prepareFlightDataForBlockchain = (flightData) => {
     flightData.operatingAirline || flightData.carrierCode || "",
     flightData.arrivalGate || "",
     flightData.departureGate || "",
-    flightData.currentFlightStatus || "",
+    currentFlightStatus || "",
     flightData.equipmentModel || "",
   ];
 
@@ -249,8 +253,7 @@ export const addFlightSubscription = async (req, res) => {
     const flightData = await fetchFlightStatusData(
       flightNumber,
       scheduledDepartureDate,
-      departureAirport,
-      walletAddress
+      departureAirport
     );
 
     if (!flightData) {
@@ -455,28 +458,23 @@ export const addFlightSubscription = async (req, res) => {
 // Schedule periodic flight status updates
 export const startFlightStatusMonitoring = () => {
   // Run every 5 minutes
-  const job = schedule.scheduleJob("*/5 * * * *", async () => {
+  const job = schedule.scheduleJob("*/1 * * * *", async () => {
     try {
       console.log(
         "[SCHEDULER] Running scheduled flight status update check..."
       );
 
-      // Get flights updated in the last 24 hours
-      const oneDayAgo = new Date();
-      oneDayAgo.setDate(oneDayAgo.getDate() - 1);
-
-      const recentFlights = await FlightData.find({
-        updatedAt: { $gte: oneDayAgo },
-        isSubscribed: true, // Only check subscribed flights
-      }).sort({ updatedAt: -1 });
+      const todaysFlights = await FlightData.find({
+        scheduledDepartureDate: new Date().toISOString().split("T")[0], // YYYY-MM-DD
+      });
 
       console.log(
-        `[SCHEDULER] Found ${recentFlights.length} recent subscribed flights to check for updates`
+        `[SCHEDULER] Found ${todaysFlights.length} ${todaysFlights} recent flights to check for updates`
       );
 
       // Track results
       const results = {
-        total: recentFlights.length,
+        total: todaysFlights.length,
         updated: 0,
         failed: 0,
         skipped: 0,
@@ -484,7 +482,7 @@ export const startFlightStatusMonitoring = () => {
       };
 
       // Check each flight for updates
-      for (const flight of recentFlights) {
+      for (const flight of todaysFlights) {
         try {
           // Skip already arrived flights
           if (
@@ -508,6 +506,8 @@ export const startFlightStatusMonitoring = () => {
             flight.scheduledDepartureDate,
             flight.departureAirport
           );
+
+          console.log("newFlightData", newFlightData);
 
           if (!newFlightData) {
             console.log(
@@ -571,6 +571,7 @@ export const startFlightStatusMonitoring = () => {
             }
 
             // Prepare update data with new status
+
             const updateData = {
               ...newFlightData,
               currentFlightStatus: newPhase,

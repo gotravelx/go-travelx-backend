@@ -70,7 +70,7 @@ const ContractAbi = [
       {
         indexed: false,
         internalType: "string",
-        name: "flightStatus",
+        name: "CurrentFlightStatus",
         type: "string",
       },
     ],
@@ -206,13 +206,13 @@ const ContractAbi = [
       {
         indexed: false,
         internalType: "string",
-        name: "status",
+        name: "FlightStatus",
         type: "string",
       },
       {
         indexed: false,
         internalType: "string",
-        name: "statusCode",
+        name: "FlightStatusCode",
         type: "string",
       },
     ],
