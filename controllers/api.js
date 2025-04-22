@@ -345,7 +345,7 @@ export const fetchFlightStatusData = async (
       departureAirport,
     });
 
-    console.log(">---------------- flightData", flightData);
+    // console.log(">---------------- flightData", flightData);
 
     // If no flight data found
     if (!flightData) {

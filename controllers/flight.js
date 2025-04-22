@@ -4,99 +4,63 @@ import dotenv from "dotenv";
 import { fetchFlightStatusData } from "./api.js";
 import blockchainService from "../utils/flightBlockchainService.js";
 import FlightSubscription from "../model/flight-subscription.js";
-dotenv.config();
+import { prepareFlightDataForBlockchain } from "./encrypt.js";
 
-export const saveFlightDataToMongoDB = async (
+dotenv.config();
+const encryptionKey = process.env.ENCRYPTION_KEY;
+console.log("[BLOCKCHAIN] Encryption Key", encryptionKey);
+
+// Function to update MongoDB schema to handle mixed encrypted/unencrypted data
+const saveFlightDataToMongoDB = async (
   flightData,
   blockchainFlightData,
   blockchainUtcTimes,
   blockchainStatusData,
-  tasnectionhash
+  transactionHash
 ) => {
   try {
-    // Destructure blockchain data arrays
-    const [
-      flightNumber,
-      scheduledDepartureDate,
-      carrierCode,
-      arrivalCity,
-      departureCity,
-      arrivalAirport,
-      departureAirport,
-      operatingAirline,
-      arrivalGate,
-      departureGate,
-      flightStatus,
-      equipmentModel,
-    ] = blockchainFlightData;
+    console.log("[MongoDB] Saving Flight Data", {
+      flightData: flightData.flightNumber,
+      transactionHash: transactionHash,
+    });
 
-    const [
-      actualArrivalUTC,
-      actualDepartureUTC,
-      estimatedArrivalUTC,
-      estimatedDepartureUTC,
-      scheduledArrivalUTCDateTime,
-      scheduledDepartureUTCDateTime,
-      arrivalDelayMinutes,
-      departureDelayMinutes,
-      baggageClaim,
-    ] = blockchainUtcTimes;
+    // Extract the unencrypted fields needed for MongoDB validation
+    const flightNumber = flightData.flightNumber;
+    const departureDelayMinutes = flightData.departureDelayMinutes || 0;
+    const arrivalDelayMinutes = flightData.arrivalDelayMinutes || 0;
 
-    const [
-      statusCode,
-      flightStatusDescription,
-      arrivalStatus,
-      departureStatus,
-      outTimeUTC,
-      offTimeUTC,
-      onTimeUTC,
-      inTimeUTC,
-    ] = blockchainStatusData;
-
-    // Get marketing segments from original flight data
-    const marketingSegments = flightData.marketedFlightSegment || [];
-
-    // Status mapping to ensure schema compatibility
-    const statusMap = {
-      IN: "in",
-      OUT: "out",
-      OFF: "off",
-      ON: "on",
-      NDPT: "ndpt",
-    };
-
-    // Create new FlightData document
-    const newFlightData = new FlightData({
+    // Create a new MongoDB record with properly typed fields
+    const mongoData = new FlightData({
       flightNumber: flightNumber,
-      scheduledDepartureDate,
-      carrierCode,
-      operatingAirline,
-      estimatedArrivalUTC,
-      estimatedDepartureUTC,
-      actualDepartureUTC,
-      actualArrivalUTC,
-      scheduledArrivalUTCDateTime,
-      scheduledDepartureUTCDateTime,
-      outTimeUTC,
-      offTimeUTC,
-      onTimeUTC,
-      inTimeUTC,
-      arrivalCity,
-      departureCity,
-      arrivalStatus: arrivalStatus || flightStatus,
-      departureStatus: departureStatus || flightStatus,
-      arrivalAirport,
-      departureAirport,
-      departureGate,
-      arrivalGate,
-      equipmentModel,
-      statusCode,
-      flightStatusDescription,
-      currentFlightStatus: statusMap[flightData.statusCode] || "ndpt", // Fixed this line
-      baggageClaim,
+      scheduledDepartureDate: flightData.scheduledDepartureDate,
+      carrierCode: flightData.carrierCode,
+      operatingAirline: flightData.operatingAirline,
+      estimatedArrivalUTC: flightData.estimatedArrivalUTC,
+      estimatedDepartureUTC: flightData.estimatedDepartureUTC,
+      actualDepartureUTC: flightData.actualDepartureUTC,
+      actualArrivalUTC: flightData.actualArrivalUTC,
+      scheduledArrivalUTCDateTime: flightData.scheduledArrivalUTCDateTime,
+      scheduledDepartureUTCDateTime: flightData.scheduledDepartureUTCDateTime,
+      outTimeUTC: flightData.outTimeUTC,
+      offTimeUTC: flightData.offTimeUTC,
+      onTimeUTC: flightData.onTimeUTC,
+      inTimeUTC: flightData.inTimeUTC,
+      arrivalCity: flightData.arrivalCity,
+      departureCity: flightData.departureCity,
+      arrivalStatus: flightData.arrivalStatus || flightStatus,
+      departureStatus: flightData.departureStatus || flightStatus,
+      arrivalAirport: flightData.arrivalAirport,
+      departureAirport: flightData.departureAirport,
+      departureGate: flightData.departureGate,
+      arrivalGate: flightData.arrivalGate,
+      equipmentModel: flightData.equipmentModel,
+      statusCode: flightData.statusCode,
+      flightStatusDescription: flightData.flightStatusDescription,
+      currentFlightStatus: flightData.currentFlightStatus || "ndpt", // Fixed this line
+      baggageClaim: flightData.baggageClaim,
       departureDelayMinutes: Number(departureDelayMinutes),
       arrivalDelayMinutes: Number(arrivalDelayMinutes),
-      MarketedFlightSegment: marketingSegments.map((segment) => ({
+      MarketedFlightSegment: flightData.marketingSegments.map((segment) => ({
         MarketingAirlineCode: segment.MarketingAirlineCode,
         FlightNumber: segment.FlightNumber,
       })),
@@ -105,18 +69,10 @@ export const saveFlightDataToMongoDB = async (
       boardingTime: flightData.boardingTime,
       isCanceled: flightData.isCanceled || false,
       blockchainUpdated: true,
-      blockchainTxHash: tasnectionhash,
+      blockchainTxHash: transactionHash,
     });
 
-    // Save the flight data
-    const savedFlightData = await newFlightData.save();
-
-    console.log("[MongoDB] Flight Data Saved Successfully", {
-      flightNumber: savedFlightData.flightNumber,
-      _id: savedFlightData._id,
-    });
-
-    return savedFlightData;
+    return await mongoData.save();
   } catch (error) {
     console.error("[MongoDB] Error Saving Flight Data", {
       error: error.message,
@@ -124,76 +80,6 @@ export const saveFlightDataToMongoDB = async (
     });
     throw error;
   }
-};
-
-const prepareFlightDataForBlockchain = (flightData) => {
-  // Validate required fields
-  if (
-    !flightData.flightNumber ||
-    !flightData.carrierCode ||
-    !flightData.scheduledDepartureDate
-  ) {
-    throw new Error("Missing required flight data fields");
-  }
-
-  const currentFlightStatus = flightData.currentFlightStatus
-    .toString()
-    .toUpperCase();
-
-  const blockchainFlightData = [
-    flightData.flightNumber,
-    flightData.scheduledDepartureDate,
-    flightData.carrierCode,
-    flightData.arrivalCity || "",
-    flightData.departureCity || "",
-    flightData.arrivalAirport || "",
-    flightData.departureAirport || "",
-    flightData.operatingAirline || flightData.carrierCode || "",
-    flightData.arrivalGate || "",
-    flightData.departureGate || "",
-    currentFlightStatus || "",
-    flightData.equipmentModel || "",
-  ];
-
-  const blockchainUtcTimes = [
-    flightData.actualArrivalUTC || "",
-    flightData.actualDepartureUTC || "",
-    flightData.estimatedArrivalUTC || "",
-    flightData.estimatedDepartureUTC || "",
-    flightData.scheduledArrivalUTCDateTime || "",
-    flightData.scheduledDepartureUTCDateTime || "",
-    String(flightData.arrivalDelayMinutes || "0"),
-    String(flightData.departureDelayMinutes || "0"),
-    flightData.baggageClaim || "",
-  ];
-
-  const blockchainStatusData = [
-    flightData.statusCode || "",
-    flightData.flightStatus || "",
-    flightData.arrivalStatus || "",
-    flightData.departureStatus || "",
-    flightData.outTimeUTC || "",
-    flightData.offTimeUTC || "",
-    flightData.onTimeUTC || "",
-    flightData.inTimeUTC || "",
-  ];
-
-  // Handle marketing segments - ensure at least one empty entry if empty
-  const marketingSegments = flightData.marketedFlightSegment || [{}];
-  const marketingAirlineCodes = marketingSegments.map(
-    (segment) => segment.MarketingAirlineCode || ""
-  );
-  const marketingFlightNumbers = marketingSegments.map(
-    (segment) => segment.FlightNumber || ""
-  );
-
-  return {
-    blockchainFlightData,
-    blockchainUtcTimes,
-    blockchainStatusData,
-    marketingAirlineCodes,
-    marketingFlightNumbers,
-  };
 };
 
 export const addFlightSubscription = async (req, res) => {
@@ -300,36 +186,34 @@ export const addFlightSubscription = async (req, res) => {
       });
 
       try {
-        const {
-          blockchainFlightData,
-          blockchainUtcTimes,
-          blockchainStatusData,
-          marketingAirlineCodes,
-          marketingFlightNumbers,
-        } = prepareFlightDataForBlockchain(flightData);
+        const preparedData = prepareFlightDataForBlockchain(
+          flightData,
+          encryptionKey
+        );
 
+        // The blockchain service will receive data where only specific fields are unencrypted
         const blockchainInsertService =
           await blockchainService.insertFlightDetails(
-            blockchainFlightData,
-            blockchainUtcTimes,
-            blockchainStatusData,
-            marketingAirlineCodes,
-            marketingFlightNumbers
+            preparedData.blockchainFlightData, // Contains mix of encrypted and unencrypted data
+            preparedData.blockchainUtcTimes, // Fully encrypted
+            preparedData.blockchainStatusData, // Fully encrypted
+            preparedData.marketingAirlineCodes, // Fully encrypted
+            preparedData.marketingFlightNumbers // Fully encrypted
           );
 
         console.log("[BLOCKCHAIN] Flight Details Inserted Successfully", {
           flightNumber: flightData.flightNumber,
-          tasnectionhash: blockchainInsertService.transactionHash,
+          transactionHash: blockchainInsertService.transactionHash,
         });
 
+        // Use the original data for MongoDB to avoid validation errors
         const flightInsert = await saveFlightDataToMongoDB(
-          flightData,
-          blockchainFlightData,
-          blockchainUtcTimes,
-          blockchainStatusData,
+          flightData, // Original data for validation fields
+          preparedData.blockchainFlightData,
+          preparedData.blockchainUtcTimes,
+          preparedData.blockchainStatusData,
           blockchainInsertService.transactionHash
         );
-
         console.log("[API] Flight Details Inserted Successfully In Mongodb", {
           flightNumber: flightData.flightNumber,
           flightInsert,
@@ -469,7 +353,10 @@ export const startFlightStatusMonitoring = () => {
       });
 
       console.log(
-        `[SCHEDULER] Found ${todaysFlights.length} ${todaysFlights} recent flights to check for updates`
+        `[SCHEDULER] Found ${todaysFlights.length} ${todaysFlights.map((e) =>
+          console.log(e.flightNumber)
+        )} 
+        )} recent flights to check for updates flights for today`
       );
 
       // Track results
@@ -507,7 +394,7 @@ export const startFlightStatusMonitoring = () => {
             flight.departureAirport
           );
 
-          console.log("newFlightData", newFlightData);
+          // console.log("newFlightData", newFlightData);
 
           if (!newFlightData) {
             console.log(
@@ -598,7 +485,10 @@ export const startFlightStatusMonitoring = () => {
                 blockchainStatusData,
                 marketingAirlineCodes,
                 marketingFlightNumbers,
-              } = prepareFlightDataForBlockchain(mergedFlightData);
+              } = prepareFlightDataForBlockchain(
+                mergedFlightData,
+                encryptionKey
+              );
 
               console.log(
                 `[BLOCKCHAIN] Updating flight status in blockchain for flight ${flight.flightNumber}`
@@ -672,7 +562,7 @@ export const startFlightStatusMonitoring = () => {
               blockchainStatusData,
               marketingAirlineCodes,
               marketingFlightNumbers,
-            } = prepareFlightDataForBlockchain(flight);
+            } = prepareFlightDataForBlockchain(flight, encryptionKey);
 
             console.log(
               `[BLOCKCHAIN] Retrying blockchain update for flight ${flight.flightNumber}`
