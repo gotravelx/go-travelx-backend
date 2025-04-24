@@ -58,14 +58,83 @@ export const prepareFlightDataForBlockchain = (flightData, encryptionKey) => {
     throw new Error("Encryption key must be 32 bytes");
   }
 
+  // Normalize current flight status
   const currentFlightStatus = flightData.currentFlightStatus
-    .toString()
-    .toUpperCase();
+    ? flightData.currentFlightStatus.toString().toLowerCase()
+    : "";
+
+  // Handle status transition timestamps
+  let outTimeUTC = flightData.outTimeUTC || "";
+  let offTimeUTC = flightData.offTimeUTC || "";
+  let onTimeUTC = flightData.onTimeUTC || "";
+  let inTimeUTC = flightData.inTimeUTC || "";
+
+  // Get current UTC time for any missing timestamps
+  const currentUTCTime = new Date().toISOString();
+
+  // If we have previous status, check for transitions and update timestamps
+  // ndpt -> out
+  if (currentFlightStatus === "out") {
+    outTimeUTC = flightData.outTimeUTC || currentUTCTime;
+    console.log(
+      `Flight ${flightData.flightNumber} OUT time recorded: ${outTimeUTC}`
+    );
+  }
+  // out -> off
+  else if (currentFlightStatus === "off") {
+    offTimeUTC = flightData.offTimeUTC || currentUTCTime;
+    console.log(
+      `Flight ${flightData.flightNumber} OFF time recorded: ${offTimeUTC}`
+    );
+  }
+  // off -> on
+  else if (currentFlightStatus === "on") {
+    onTimeUTC = flightData.onTimeUTC || currentUTCTime;
+    console.log(
+      `Flight ${flightData.flightNumber} ON time recorded: ${onTimeUTC}`
+    );
+  }
+  // on -> in
+  else if (currentFlightStatus === "in") {
+    inTimeUTC = flightData.inTimeUTC || currentUTCTime;
+    console.log(
+      `Flight ${flightData.flightNumber} IN time recorded: ${inTimeUTC}`
+    );
+  }
+
+  // Get status code based on current flight status
+  let statusCode = flightData.statusCode || "";
+  if (!statusCode) {
+    if (currentFlightStatus === "out") statusCode = "OUT";
+    else if (currentFlightStatus === "off") statusCode = "OFF";
+    else if (currentFlightStatus === "on") statusCode = "ON";
+    else if (currentFlightStatus === "in") statusCode = "IN";
+    else statusCode = "NDPT"; // Default to Not Departed
+  }
+
+  // Ensure flightStatus has a value
+  const flightStatus =
+    flightData.flightStatusDescription ||
+    (currentFlightStatus.toUpperCase() === "NDPT"
+      ? "Not Departed"
+      : currentFlightStatus.toUpperCase() === "OUT"
+      ? "Departed"
+      : currentFlightStatus.toUpperCase() === "OFF"
+      ? "In Air"
+      : currentFlightStatus.toUpperCase() === "ON"
+      ? "Landed"
+      : currentFlightStatus.toUpperCase() === "IN"
+      ? "Arrived"
+      : "Scheduled");
+
+  // Determine currentFlightTime based on status
+  let currentFlightTime =
+    inTimeUTC || onTimeUTC || offTimeUTC || outTimeUTC || currentUTCTime;
 
   const blockchainFlightData = [
     flightData.flightNumber, // index 0 - flight number (keep unencrypted)
     flightData.scheduledDepartureDate, // index 1 - departure date (keep unencrypted)
-    flightData.carrierCode,
+    flightData.carrierCode, // index 2 - carrier code (keep unencrypted)
     flightData.arrivalCity || "",
     flightData.departureCity || "",
     flightData.arrivalAirport || "",
@@ -73,7 +142,7 @@ export const prepareFlightDataForBlockchain = (flightData, encryptionKey) => {
     flightData.operatingAirline || flightData.carrierCode || "",
     flightData.arrivalGate || "",
     flightData.departureGate || "",
-    currentFlightStatus || "",
+    currentFlightStatus.toUpperCase() || "",
     flightData.equipmentModel || "",
   ];
 
@@ -90,14 +159,14 @@ export const prepareFlightDataForBlockchain = (flightData, encryptionKey) => {
   ];
 
   const blockchainStatusData = [
-    flightData.statusCode || "",
-    flightData.flightStatus || "",
+    statusCode, // index 0 - status code
+    flightStatus, // index 1 - flight status description
     flightData.arrivalStatus || "",
     flightData.departureStatus || "",
-    flightData.outTimeUTC || "",
-    flightData.offTimeUTC || "",
-    flightData.onTimeUTC || "",
-    flightData.inTimeUTC || "",
+    outTimeUTC, // index 4 - outTimeUTC
+    offTimeUTC, // index 5 - offTimeUTC
+    onTimeUTC, // index 6 - onTimeUTC
+    currentFlightTime, // index 7 - currentFlightTime (used for event)
   ];
 
   // Handle marketing segments - ensure at least one empty entry if empty
@@ -111,8 +180,8 @@ export const prepareFlightDataForBlockchain = (flightData, encryptionKey) => {
 
   // If encryption key is provided, encrypt selectively
   if (encryptionKey) {
-    // Indices to keep unencrypted: flight number (0), departure date (1), departure airport (6)
-    const unencryptedFlightDataIndices = [0, 1, 6];
+    // Indices to keep unencrypted: flight number (0), departure date (1), carrier code (2), departure airport (6)
+    const unencryptedFlightDataIndices = [0, 1, 2, 6];
 
     return {
       blockchainFlightData: selectiveEncrypt(
@@ -120,15 +189,10 @@ export const prepareFlightDataForBlockchain = (flightData, encryptionKey) => {
         encryptionKey,
         unencryptedFlightDataIndices
       ),
-      blockchainUtcTimes: selectiveEncrypt(
-        blockchainUtcTimes,
-        encryptionKey,
-        []
-      ),
+      blockchainUtcTimes: selectiveEncrypt(blockchainUtcTimes, encryptionKey),
       blockchainStatusData: selectiveEncrypt(
         blockchainStatusData,
-        encryptionKey,
-        []
+        encryptionKey
       ),
       marketingAirlineCodes: selectiveEncrypt(
         marketingAirlineCodes,
@@ -152,7 +216,6 @@ export const prepareFlightDataForBlockchain = (flightData, encryptionKey) => {
     marketingFlightNumbers,
   };
 };
-
 // Function for decryption when retrieving data
 export const decryptData = (encryptedData, encryptionKey) => {
   if (Array.isArray(encryptedData)) {
@@ -164,12 +227,10 @@ export const decryptData = (encryptedData, encryptionKey) => {
 // Helper function to decrypt a single string
 const decryptString = (encryptedStr, encryptionKey) => {
   try {
-    // If empty or not encrypted, return as is
     if (!encryptedStr || !encryptedStr.includes(":")) return encryptedStr;
 
-    const parts = encryptedStr.split(":");
-    const iv = Buffer.from(parts[0], "hex");
-    const encryptedText = parts[1];
+    const [ivHex, encryptedText] = encryptedStr.split(":");
+    const iv = Buffer.from(ivHex, "hex");
 
     const decipher = crypto.createDecipheriv(
       "aes-256-cbc",
@@ -182,6 +243,20 @@ const decryptString = (encryptedStr, encryptionKey) => {
     return decrypted;
   } catch (error) {
     console.error(`Decryption failed: ${error.message}`);
-    return encryptedStr; // Return original string if decryption fails
+    return encryptedStr;
   }
+};
+
+export const decryptFlightData = (req, res) => {
+  const { encryptedData } = req.body;
+
+  if (!encryptedData) {
+    return res.status(400).json({ error: "Missing encryptedData" });
+  }
+
+  const result = decryptData(encryptedData, process.env.ENCRYPTION_KEY);
+  if (!result) {
+    return res.status(500).json({ error: "Decryption failed" });
+  }
+  res.json({ decryptedData: result });
 };

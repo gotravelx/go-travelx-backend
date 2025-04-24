@@ -138,6 +138,87 @@ export class FlightBlockchainService {
     }
   }
 
+  // New function to update flight status
+  async updateFlightStatus(
+    flightNumber,
+    scheduledDepartureDate,
+    carrierCode,
+    currentTime,
+    flightStatus,
+    flightStatusCode
+  ) {
+    if (!this.contractWithSigner) {
+      throw new Error("Wallet not configured for transactions");
+    }
+
+    try {
+      // Validate input parameters
+      if (
+        !flightNumber ||
+        !scheduledDepartureDate ||
+        !carrierCode ||
+        !currentTime ||
+        !flightStatus ||
+        !flightStatusCode
+      ) {
+        throw new Error("Invalid input parameters");
+      }
+
+      // Sanitize inputs
+      const sanitizedFlightNumber = String(flightNumber);
+      const sanitizedScheduledDepartureDate = String(scheduledDepartureDate);
+      const sanitizedCarrierCode = String(carrierCode);
+      const sanitizedCurrentTime = String(currentTime);
+      const sanitizedFlightStatus = String(flightStatus);
+      const sanitizedFlightStatusCode = String(flightStatusCode);
+
+      // First try to estimate gas
+      let estimatedGas;
+      try {
+        estimatedGas =
+          await this.contractWithSigner.estimateGas.updateFlightStatus(
+            sanitizedFlightNumber,
+            sanitizedScheduledDepartureDate,
+            sanitizedCarrierCode,
+            sanitizedCurrentTime,
+            sanitizedFlightStatus,
+            sanitizedFlightStatusCode
+          );
+      } catch (estimateError) {
+        console.error("Gas estimation failed:", estimateError);
+        throw new Error(
+          "Transaction would fail. Check contract requirements and input data."
+        );
+      }
+
+      // Add a buffer to the estimated gas (e.g., 20% more)
+      const gasLimit = estimatedGas.mul(120).div(100);
+
+      // Perform the transaction with manual gas limit
+      const tx = await this.contractWithSigner.updateFlightStatus(
+        sanitizedFlightNumber,
+        sanitizedScheduledDepartureDate,
+        sanitizedCarrierCode,
+        sanitizedCurrentTime,
+        sanitizedFlightStatus,
+        sanitizedFlightStatusCode,
+        { gasLimit }
+      );
+
+      // Wait for transaction confirmation
+      const receipt = await tx.wait();
+
+      return {
+        success: true,
+        transactionHash: tx.hash,
+        blockNumber: receipt.blockNumber,
+      };
+    } catch (error) {
+      console.error("Error updating flight status:", error);
+      throw error;
+    }
+  }
+
   // Retrieve flight details
   async getFlightDetails(flightNumber, scheduledDepartureDate, carrierCode) {
     try {
@@ -165,6 +246,7 @@ export class FlightBlockchainService {
       throw error;
     }
   }
+
   async addFlightSubscription(flightNumber, carrierCode, departureAirport) {
     if (!this.contractWithSigner) {
       throw new Error("Wallet not configured for transactions");

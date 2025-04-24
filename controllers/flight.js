@@ -11,13 +11,7 @@ const encryptionKey = process.env.ENCRYPTION_KEY;
 console.log("[BLOCKCHAIN] Encryption Key", encryptionKey);
 
 // Function to update MongoDB schema to handle mixed encrypted/unencrypted data
-const saveFlightDataToMongoDB = async (
-  flightData,
-  blockchainFlightData,
-  blockchainUtcTimes,
-  blockchainStatusData,
-  transactionHash
-) => {
+const saveFlightDataToMongoDB = async (flightData, transactionHash) => {
   try {
     console.log("[MongoDB] Saving Flight Data", {
       flightData: flightData.flightNumber,
@@ -60,10 +54,12 @@ const saveFlightDataToMongoDB = async (
       baggageClaim: flightData.baggageClaim,
       departureDelayMinutes: Number(departureDelayMinutes),
       arrivalDelayMinutes: Number(arrivalDelayMinutes),
-      MarketedFlightSegment: flightData.marketingSegments.map((segment) => ({
-        MarketingAirlineCode: segment.MarketingAirlineCode,
-        FlightNumber: segment.FlightNumber,
-      })),
+      MarketedFlightSegment: flightData.marketedFlightSegment.map(
+        (segment) => ({
+          MarketingAirlineCode: segment.MarketingAirlineCode,
+          FlightNumber: segment.FlightNumber,
+        })
+      ),
       departureTerminal: flightData.departureTerminal,
       arrivalTerminal: flightData.arrivalTerminal,
       boardingTime: flightData.boardingTime,
@@ -208,10 +204,7 @@ export const addFlightSubscription = async (req, res) => {
 
         // Use the original data for MongoDB to avoid validation errors
         const flightInsert = await saveFlightDataToMongoDB(
-          flightData, // Original data for validation fields
-          preparedData.blockchainFlightData,
-          preparedData.blockchainUtcTimes,
-          preparedData.blockchainStatusData,
+          flightData,
           blockchainInsertService.transactionHash
         );
         console.log("[API] Flight Details Inserted Successfully In Mongodb", {

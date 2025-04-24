@@ -52,12 +52,6 @@ const ContractAbi = [
       {
         indexed: false,
         internalType: "string",
-        name: "operatingAirlineCode",
-        type: "string",
-      },
-      {
-        indexed: false,
-        internalType: "string",
         name: "arrivalGate",
         type: "string",
       },
@@ -73,8 +67,89 @@ const ContractAbi = [
         name: "CurrentFlightStatus",
         type: "string",
       },
+      {
+        components: [
+          {
+            internalType: "string",
+            name: "actualArrivalUTC",
+            type: "string",
+          },
+          {
+            internalType: "string",
+            name: "actualDepartureUTC",
+            type: "string",
+          },
+          {
+            internalType: "string",
+            name: "estimatedArrivalUTC",
+            type: "string",
+          },
+          {
+            internalType: "string",
+            name: "estimatedDepartureUTC",
+            type: "string",
+          },
+          {
+            internalType: "string",
+            name: "scheduledArrivalUTC",
+            type: "string",
+          },
+          {
+            internalType: "string",
+            name: "scheduledDepartureUTC",
+            type: "string",
+          },
+        ],
+        indexed: false,
+        internalType: "struct FlightStatusOracle.UTCTimeStruct",
+        name: "utcTimes",
+        type: "tuple",
+      },
     ],
     name: "FlightDataSet",
+    type: "event",
+  },
+  {
+    anonymous: false,
+    inputs: [
+      {
+        indexed: false,
+        internalType: "string",
+        name: "flightNumber",
+        type: "string",
+      },
+      {
+        indexed: false,
+        internalType: "string",
+        name: "scheduledDepartureDate",
+        type: "string",
+      },
+      {
+        indexed: false,
+        internalType: "string",
+        name: "currentFlightStatusTime",
+        type: "string",
+      },
+      {
+        indexed: false,
+        internalType: "string",
+        name: "carrierCode",
+        type: "string",
+      },
+      {
+        indexed: false,
+        internalType: "string",
+        name: "FlightStatus",
+        type: "string",
+      },
+      {
+        indexed: false,
+        internalType: "string",
+        name: "FlightStatusCode",
+        type: "string",
+      },
+    ],
+    name: "FlightStatusUpdate",
     type: "event",
   },
   {
@@ -131,92 +206,6 @@ const ContractAbi = [
       },
     ],
     name: "SubscriptionsRemoved",
-    type: "event",
-  },
-  {
-    anonymous: false,
-    inputs: [
-      {
-        indexed: false,
-        internalType: "string",
-        name: "actualArrivalUTC",
-        type: "string",
-      },
-      {
-        indexed: false,
-        internalType: "string",
-        name: "actualDepartureUTC",
-        type: "string",
-      },
-      {
-        indexed: false,
-        internalType: "string",
-        name: "estimatedArrivalUTC",
-        type: "string",
-      },
-      {
-        indexed: false,
-        internalType: "string",
-        name: "estimatedDepartureUTC",
-        type: "string",
-      },
-      {
-        indexed: false,
-        internalType: "string",
-        name: "scheduledArrivalUTC",
-        type: "string",
-      },
-      {
-        indexed: false,
-        internalType: "string",
-        name: "scheduledDepartureUTC",
-        type: "string",
-      },
-    ],
-    name: "UTCTimeSet",
-    type: "event",
-  },
-  {
-    anonymous: false,
-    inputs: [
-      {
-        indexed: false,
-        internalType: "string",
-        name: "flightNumber",
-        type: "string",
-      },
-      {
-        indexed: false,
-        internalType: "string",
-        name: "scheduledDepartureDate",
-        type: "string",
-      },
-      {
-        indexed: false,
-        internalType: "string",
-        name: "currentFlightStatusTime",
-        type: "string",
-      },
-      {
-        indexed: false,
-        internalType: "string",
-        name: "carrierCode",
-        type: "string",
-      },
-      {
-        indexed: false,
-        internalType: "string",
-        name: "FlightStatus",
-        type: "string",
-      },
-      {
-        indexed: false,
-        internalType: "string",
-        name: "FlightStatusCode",
-        type: "string",
-      },
-    ],
-    name: "currentFlightStatus",
     type: "event",
   },
   {
@@ -855,6 +844,44 @@ const ContractAbi = [
       },
     ],
     stateMutability: "view",
+    type: "function",
+  },
+  {
+    inputs: [
+      {
+        internalType: "string",
+        name: "flightNumber",
+        type: "string",
+      },
+      {
+        internalType: "string",
+        name: "scheduledDepartureDate",
+        type: "string",
+      },
+      {
+        internalType: "string",
+        name: "carrierCode",
+        type: "string",
+      },
+      {
+        internalType: "string",
+        name: "currentTime",
+        type: "string",
+      },
+      {
+        internalType: "string",
+        name: "flightStatus",
+        type: "string",
+      },
+      {
+        internalType: "string",
+        name: "flightStatusCode",
+        type: "string",
+      },
+    ],
+    name: "updateFlightStatus",
+    outputs: [],
+    stateMutability: "nonpayable",
     type: "function",
   },
 ];
