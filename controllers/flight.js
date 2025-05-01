@@ -10,7 +10,6 @@ dotenv.config();
 const encryptionKey = process.env.ENCRYPTION_KEY;
 console.log("[BLOCKCHAIN] Encryption Key", encryptionKey);
 
-// Function to update MongoDB schema to handle mixed encrypted/unencrypted data
 const saveFlightDataToMongoDB = async (flightData, transactionHash) => {
   try {
     console.log("[MongoDB] Saving Flight Data", {
@@ -18,12 +17,10 @@ const saveFlightDataToMongoDB = async (flightData, transactionHash) => {
       transactionHash: transactionHash,
     });
 
-    // Extract the unencrypted fields needed for MongoDB validation
     const flightNumber = flightData.flightNumber;
     const departureDelayMinutes = flightData.departureDelayMinutes || 0;
     const arrivalDelayMinutes = flightData.arrivalDelayMinutes || 0;
 
-    // Create a new MongoDB record with properly typed fields
     const mongoData = new FlightData({
       flightNumber: flightNumber,
       scheduledDepartureDate: flightData.scheduledDepartureDate,
@@ -93,7 +90,6 @@ export const addFlightSubscription = async (req, res) => {
       walletAddress,
     } = req.body;
 
-    // Validate input
     if (
       !flightNumber ||
       !scheduledDepartureDate ||
@@ -332,7 +328,6 @@ export const addFlightSubscription = async (req, res) => {
   }
 };
 
-// Schedule periodic flight status updates
 export const startFlightStatusMonitoring = () => {
   // Run every 5 minutes
   const job = schedule.scheduleJob("*/1 * * * *", async () => {
@@ -616,16 +611,6 @@ export const startFlightStatusMonitoring = () => {
   );
   return job;
 };
-/*
-
-1. Use insertFlightDetails for updates: Your contract's insertFlightDetails function can actually be used to update existing flight data because it overwrites the data in the mappings for that flight.
-2. Keep track of flight phases: I've maintained the phase transition detection (ndpt → out → off → on → in) and mapped those to appropriate status codes.
-3. Track timestamps for each phase: As the flight progresses through different phases, we update the appropriate timestamp (outTimeUTC, offTimeUTC, onTimeUTC, inTimeUTC).
-4. Maintain blockchain transaction record: We store the transaction hash and update status in MongoDB.
-   Added retry mechanism: For flights that failed to update in the blockchain, we have a retry process.
-
-*/
-// You'll need to implement this function in your blockchainService
 
 export const getSubscribedFlights = async (req, res) => {
   try {
@@ -657,21 +642,6 @@ export const getSubscribedFlights = async (req, res) => {
     res.status(500).json({ error: "Internal server error" });
   }
 };
-
-/*
-  API: getAllSubscriptionOfUser
-  Description: Fetches all flight subscriptions of a user along with their flight details.
-  
-  Steps:
-  1. Extract walletAddress from request parameters.
-  2. Validate that walletAddress is provided; return an error if missing.
-  3. Retrieve all subscriptions associated with the walletAddress from FlightSubscription model.
-  4. If no subscriptions exist, return a 404 response.
-  5. For each subscription, fetch the corresponding flight details from FlightData model.
-  6. Combine the subscription and flight data into a structured response.
-  7. Return the response with success status.
-  8. Handle errors and return a 500 status in case of failure.
-*/
 
 export const getAllSubscriptionOfUser = async (req, res) => {
   try {
@@ -713,21 +683,6 @@ export const getAllSubscriptionOfUser = async (req, res) => {
     res.status(500).json({ error: "Internal server error" });
   }
 };
-
-/*
-  API: unsubscribeFlights
-  Description: Unsubscribes multiple flights from both the blockchain and MongoDB using walletAddress, flight numbers, carrier codes, and departure airports.
-  
-  Steps:
-  1. Extract walletAddress, flightNumbers, carrierCodes, and departureAirports from request body.
-  2. Validate input to ensure all required fields are provided and arrays match in length.
-  3. Fetch matching subscriptions associated with the walletAddress from FlightSubscription model.
-  4. If no subscriptions exist, return a 404 response.
-  5. Remove subscriptions from MongoDB.
-  6. Call blockchain function to remove subscriptions from the blockchain.
-  7. Return success response if both operations are successful.
-  8. Handle errors and return a 500 status in case of failure.
-*/
 
 export const unsubscribeFlights = async (req, res) => {
   try {
@@ -792,5 +747,4 @@ export const unsubscribeFlights = async (req, res) => {
     res.status(500).json({ error: "Internal server error" });
   }
 };
-// Initialize and start monitoring
 startFlightStatusMonitoring();

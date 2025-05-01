@@ -28,7 +28,6 @@ export const encryptString = (str, encryptionKey) => {
   return iv.toString("hex") + ":" + encrypted;
 };
 
-// Function to selectively encrypt array data - some fields remain unencrypted
 export const selectiveEncrypt = (
   dataArray,
   encryptionKey,
@@ -181,7 +180,7 @@ export const prepareFlightDataForBlockchain = (flightData, encryptionKey) => {
   // If encryption key is provided, encrypt selectively
   if (encryptionKey) {
     // Indices to keep unencrypted: flight number (0), departure date (1), carrier code (2), departure airport (6)
-    const unencryptedFlightDataIndices = [0, 1, 2, 6];
+    const unencryptedFlightDataIndices = [0, 1, 2, 5, 6];
 
     return {
       blockchainFlightData: selectiveEncrypt(
@@ -216,7 +215,7 @@ export const prepareFlightDataForBlockchain = (flightData, encryptionKey) => {
     marketingFlightNumbers,
   };
 };
-// Function for decryption when retrieving data
+
 export const decryptData = (encryptedData, encryptionKey) => {
   if (Array.isArray(encryptedData)) {
     return encryptedData.map((item) => decryptString(item, encryptionKey));
@@ -224,7 +223,6 @@ export const decryptData = (encryptedData, encryptionKey) => {
   return decryptString(encryptedData, encryptionKey);
 };
 
-// Helper function to decrypt a single string
 const decryptString = (encryptedStr, encryptionKey) => {
   try {
     if (!encryptedStr || !encryptedStr.includes(":")) return encryptedStr;

@@ -3,7 +3,7 @@ import mongoose from "mongoose";
 const DataSourceSchema = new mongoose.Schema(
   {
     flightNumber: {
-      type: String, // Changed from Number to String
+      type: String,
       required: true,
     },
     scheduledDepartureDate: {
@@ -67,7 +67,6 @@ const DataSourceSchema = new mongoose.Schema(
   }
 );
 
-// Define index (Removed `flightOriginationDate`)
 DataSourceSchema.index({ flightNumber: 1, scheduledDepartureDate: 1 });
 
 const DataSource = mongoose.model("DataSource", DataSourceSchema);
