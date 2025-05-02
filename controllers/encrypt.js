@@ -160,8 +160,8 @@ export const prepareFlightDataForBlockchain = (flightData, encryptionKey) => {
   const blockchainStatusData = [
     statusCode, // index 0 - status code
     flightStatus, // index 1 - flight status description
-    flightData.arrivalStatus || "",
-    flightData.departureStatus || "",
+    flightData.arrivalState || "",
+    flightData.departureState || "",
     outTimeUTC, // index 4 - outTimeUTC
     offTimeUTC, // index 5 - offTimeUTC
     onTimeUTC, // index 6 - onTimeUTC

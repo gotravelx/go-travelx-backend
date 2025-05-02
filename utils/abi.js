@@ -145,6 +145,18 @@ const ContractAbi = [
       {
         indexed: false,
         internalType: "string",
+        name: "ArrivalState",
+        type: "string",
+      },
+      {
+        indexed: false,
+        internalType: "string",
+        name: "DepartureState",
+        type: "string",
+      },
+      {
+        indexed: false,
+        internalType: "string",
         name: "FlightStatusCode",
         type: "string",
       },
@@ -309,7 +321,7 @@ const ContractAbi = [
       },
       {
         internalType: "string",
-        name: "baggageClaim",
+        name: "bagClaim",
         type: "string",
       },
     ],
@@ -371,12 +383,12 @@ const ContractAbi = [
       },
       {
         internalType: "string",
-        name: "ArrivalStatus",
+        name: "ArrivalState",
         type: "string",
       },
       {
         internalType: "string",
-        name: "DepartureStatus",
+        name: "DepartureState",
         type: "string",
       },
       {
@@ -637,7 +649,7 @@ const ContractAbi = [
           },
           {
             internalType: "string",
-            name: "baggageClaim",
+            name: "bagClaim",
             type: "string",
           },
         ],
@@ -659,12 +671,12 @@ const ContractAbi = [
           },
           {
             internalType: "string",
-            name: "ArrivalStatus",
+            name: "ArrivalState",
             type: "string",
           },
           {
             internalType: "string",
-            name: "DepartureStatus",
+            name: "DepartureState",
             type: "string",
           },
           {

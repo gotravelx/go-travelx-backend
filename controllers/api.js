@@ -85,14 +85,14 @@ export const fetchFlightData = async (flightNumber, options = {}) => {
         const isCanceled = statusCode === "CNCL";
 
         const arrivalFlightStatusData = segment.FlightStatuses?.find(
-          (status) => status.StatusType === "ArrivalStatus"
+          (status) => status.StatusType === "arrivalState"
         );
-        const arrivalStatus = arrivalFlightStatusData?.Description || "Unknown";
+        const arrivalState = arrivalFlightStatusData?.Description || "Unknown";
 
         const departureFlightStatusData = segment.FlightStatuses?.find(
-          (status) => status.StatusType === "DepartureStatus"
+          (status) => status.StatusType === "departureState"
         );
-        const departureStatus =
+        const departureState =
           departureFlightStatusData?.Description || "Unknown";
 
         const marketedFlightSegment = scheduledSegment?.MarketedFlightSegment;
@@ -141,8 +141,8 @@ export const fetchFlightData = async (flightNumber, options = {}) => {
           inTimeUTC: segment.InUTCTime || "",
           arrivalCity: segment.ArrivalAirport.Address.City,
           departureCity: segment.DepartureAirport.Address.City,
-          arrivalStatus,
-          departureStatus,
+          arrivalState,
+          departureState,
           arrivalAirport: segment.ArrivalAirport.IATACode,
           departureAirport: segment.DepartureAirport.IATACode,
           departureGate: segment.DepartureGate || "TBD",
