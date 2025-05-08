@@ -3,7 +3,7 @@ import mongoose from "mongoose";
 const DataSourceSchema = new mongoose.Schema(
   {
     flightNumber: {
-      type: String, // Changed from Number to String
+      type: String,
       required: true,
     },
     scheduledDepartureDate: {
@@ -27,8 +27,8 @@ const DataSourceSchema = new mongoose.Schema(
     inTimeUTC: String,
     arrivalCity: String,
     departureCity: String,
-    arrivalStatus: String,
-    departureStatus: String,
+    arrivalState: String,
+    departureState: String,
     arrivalAirport: String,
     departureAirport: String,
     departureGate: String,
@@ -43,7 +43,7 @@ const DataSourceSchema = new mongoose.Schema(
       enum: ["ndpt", "out", "off", "on", "in"],
       default: "ndpt",
     },
-    baggageClaim: String,
+    bagClaim: String,
     departureDelayMinutes: {
       type: Number,
       default: 0,
@@ -67,7 +67,6 @@ const DataSourceSchema = new mongoose.Schema(
   }
 );
 
-// Define index (Removed `flightOriginationDate`)
 DataSourceSchema.index({ flightNumber: 1, scheduledDepartureDate: 1 });
 
 const DataSource = mongoose.model("DataSource", DataSourceSchema);

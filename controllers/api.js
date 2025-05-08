@@ -85,14 +85,14 @@ export const fetchFlightData = async (flightNumber, options = {}) => {
         const isCanceled = statusCode === "CNCL";
 
         const arrivalFlightStatusData = segment.FlightStatuses?.find(
-          (status) => status.StatusType === "ArrivalStatus"
+          (status) => status.StatusType === "arrivalState"
         );
-        const arrivalStatus = arrivalFlightStatusData?.Description || "Unknown";
+        const arrivalState = arrivalFlightStatusData?.Description || "Unknown";
 
         const departureFlightStatusData = segment.FlightStatuses?.find(
-          (status) => status.StatusType === "DepartureStatus"
+          (status) => status.StatusType === "departureState"
         );
-        const departureStatus =
+        const departureState =
           departureFlightStatusData?.Description || "Unknown";
 
         const marketedFlightSegment = scheduledSegment?.MarketedFlightSegment;
@@ -141,8 +141,8 @@ export const fetchFlightData = async (flightNumber, options = {}) => {
           inTimeUTC: segment.InUTCTime || "",
           arrivalCity: segment.ArrivalAirport.Address.City,
           departureCity: segment.DepartureAirport.Address.City,
-          arrivalStatus,
-          departureStatus,
+          arrivalState,
+          departureState,
           arrivalAirport: segment.ArrivalAirport.IATACode,
           departureAirport: segment.DepartureAirport.IATACode,
           departureGate: segment.DepartureGate || "TBD",
@@ -328,23 +328,14 @@ export const fetchFlightStatus = async (req, res) => {
 export const fetchFlightStatusData = async (
   flightNumber,
   scheduledDepartureDate,
-  departureAirport,
-  walletAddress
+  departureAirport
 ) => {
   try {
-    if (!walletAddress) {
-      return res.status(400).json({
-        success: false,
-        errorMessage: "Wallet address is required",
-      });
-    }
-
     console.log(
       "fetchFlightStatusData --------->",
       flightNumber,
       scheduledDepartureDate,
-      departureAirport,
-      walletAddress
+      departureAirport
     );
 
     // Fetch flight data using Mongoose query
@@ -354,15 +345,124 @@ export const fetchFlightStatusData = async (
       departureAirport,
     });
 
-    console.log(">---------------- flightData", flightData);
+    // console.log(">---------------- flightData", flightData);
 
     // If no flight data found
     if (!flightData) {
       return null;
     }
 
-    return flightData;
+    // Convert to plain object and remove _id
+    const flightDataObj = flightData.toObject();
+    delete flightDataObj._id;
+
+    return flightDataObj;
   } catch (error) {
+    console.error("Error fetching flight data:", error.message);
     return null;
   }
+};
+
+const getCurrentUTCTime = () => new Date().toISOString();
+
+export const updateToOut = async (req, res) => {
+  const { flightNumber, scheduledDepartureDate, departureAirport } = req.body;
+
+  const flight = await DataSource.findOne({
+    flightNumber,
+    scheduledDepartureDate,
+    departureAirport,
+  });
+
+  if (!flight) return res.status(404).json({ message: "Flight not found" });
+
+  if (flight.currentFlightStatus === "out") {
+    return res.status(400).json({ message: "Already updated to OUT" });
+  }
+
+  flight.currentFlightStatus = "out";
+  flight.statusCode = "OUT";
+  flight.flightStatusDescription = "DEPARTED";
+  flight.actualDepartureUTC = getCurrentUTCTime();
+  flight.outTimeUTC = getCurrentUTCTime();
+
+  await flight.save();
+
+  res.json({ message: "Flight status updated to OUT", data: flight });
+};
+
+export const updateToOff = async (req, res) => {
+  const { flightNumber, scheduledDepartureDate, departureAirport } = req.body;
+
+  const flight = await DataSource.findOne({
+    flightNumber,
+    scheduledDepartureDate,
+    departureAirport,
+  });
+
+  if (!flight) return res.status(404).json({ message: "Flight not found" });
+
+  if (flight.currentFlightStatus === "off") {
+    return res.status(400).json({ message: "Already updated to OFF" });
+  }
+
+  flight.currentFlightStatus = "off";
+  flight.statusCode = "OFF";
+  flight.flightStatusDescription = "IN FLIGHT";
+  flight.offTimeUTC = getCurrentUTCTime();
+
+  await flight.save();
+
+  res.json({ message: "Flight status updated to OFF", data: flight });
+};
+
+export const updateToOn = async (req, res) => {
+  const { flightNumber, scheduledDepartureDate, departureAirport } = req.body;
+
+  const flight = await DataSource.findOne({
+    flightNumber,
+    scheduledDepartureDate,
+    departureAirport,
+  });
+
+  if (!flight) return res.status(404).json({ message: "Flight not found" });
+
+  if (flight.currentFlightStatus === "on") {
+    return res.status(400).json({ message: "Already updated to ON" });
+  }
+
+  flight.currentFlightStatus = "on";
+  flight.statusCode = "ON";
+  flight.flightStatusDescription = "LANDED";
+  flight.onTimeUTC = getCurrentUTCTime();
+
+  await flight.save();
+
+  res.json({ message: "Flight status updated to ON", data: flight });
+};
+
+export const updateToIn = async (req, res) => {
+  const { flightNumber, scheduledDepartureDate, departureAirport } = req.body;
+
+  const flight = await DataSource.findOne({
+    flightNumber,
+    scheduledDepartureDate,
+    departureAirport,
+  });
+
+  if (!flight) return res.status(404).json({ message: "Flight not found" });
+
+  if (flight.currentFlightStatus === "in") {
+    return res.status(400).json({ message: "Already updated to IN" });
+  }
+
+  flight.currentFlightStatus = "in";
+  flight.statusCode = "IN";
+  flight.flightStatusDescription = "ARRIVED AT GATE";
+  flight.inTimeUTC = getCurrentUTCTime();
+  flight.actualArrivalUTC = getCurrentUTCTime();
+
+  await flight.save();
+
+  res.json({ message: "Flight status updated to IN", data: flight });
 };

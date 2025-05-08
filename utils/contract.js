@@ -36,12 +36,10 @@ export class FlightBlockchainService {
   async diagnosticContractCheck() {
     try {
       // Perform a simple read-only contract interaction to check connectivity
-      // For example, you could check if the contract exists or has a specific method
       const checkMethod = async () => {
         try {
-          // Replace with an actual read-only method from your contract
-          // This is just an example, use an appropriate method from your contract
-          await this.contract.flightNumbers(0);
+          // Use isFlightExist with an empty string as a safe test
+          await this.contract.isFlightExist("");
           return true;
         } catch (error) {
           console.error("Contract connectivity check failed:", error);
@@ -98,6 +96,9 @@ export class FlightBlockchainService {
       // First try to estimate gas
       let estimatedGas;
       try {
+        console.log("utcTimes array:", utcTimes);
+        console.log("bagClaim (utcTimes[8]):", utcTimes[8]);
+
         estimatedGas =
           await this.contractWithSigner.estimateGas.insertFlightDetails(
             sanitizedFlightData,
@@ -140,33 +141,167 @@ export class FlightBlockchainService {
     }
   }
 
-  // Retrieve flight details
-  async getFlightDetails(flightNumber, scheduledDepartureDate, carrierCode) {
+  // New function to update flight status
+  async updateFlightStatus(
+    flightNumber,
+    scheduledDepartureDate,
+    carrierCode,
+    currentTime,
+    flightStatus,
+    flightStatusCode
+  ) {
+    if (!this.contractWithSigner) {
+      throw new Error("Wallet not configured for transactions");
+    }
+
     try {
       // Validate input parameters
-      if (!flightNumber || !scheduledDepartureDate || !carrierCode) {
+      if (
+        !flightNumber ||
+        !scheduledDepartureDate ||
+        !carrierCode ||
+        !currentTime ||
+        !flightStatus ||
+        !flightStatusCode
+      ) {
         throw new Error("Invalid input parameters");
       }
 
-      // Fetch flight details
-      const details = await this.contract.getFlightDetails(
-        flightNumber,
-        scheduledDepartureDate,
-        carrierCode
+      // Sanitize inputs
+      const sanitizedFlightNumber = String(flightNumber);
+      const sanitizedScheduledDepartureDate = String(scheduledDepartureDate);
+      const sanitizedCarrierCode = String(carrierCode);
+      const sanitizedCurrentTime = String(currentTime);
+      const sanitizedFlightStatus = String(flightStatus);
+      const sanitizedFlightStatusCode = String(flightStatusCode);
+
+      // First try to estimate gas
+      let estimatedGas;
+      try {
+        estimatedGas =
+          await this.contractWithSigner.estimateGas.updateFlightStatus(
+            sanitizedFlightNumber,
+            sanitizedScheduledDepartureDate,
+            sanitizedCarrierCode,
+            sanitizedCurrentTime,
+            sanitizedFlightStatus,
+            sanitizedFlightStatusCode
+          );
+      } catch (estimateError) {
+        console.error("Gas estimation failed:", estimateError);
+        throw new Error(
+          "Transaction would fail. Check contract requirements and input data."
+        );
+      }
+
+      // Add a buffer to the estimated gas (e.g., 20% more)
+      const gasLimit = estimatedGas.mul(120).div(100);
+
+      // Perform the transaction with manual gas limit
+      const tx = await this.contractWithSigner.updateFlightStatus(
+        sanitizedFlightNumber,
+        sanitizedScheduledDepartureDate,
+        sanitizedCarrierCode,
+        sanitizedCurrentTime,
+        sanitizedFlightStatus,
+        sanitizedFlightStatusCode,
+        { gasLimit }
       );
 
+      // Wait for transaction confirmation
+      const receipt = await tx.wait();
+
       return {
-        flightData: details[0],
-        utcTime: details[1],
-        status: details[2],
-        marketedFlightSegments: details[3],
-        currentStatus: details[4],
+        success: true,
+        transactionHash: tx.hash,
+        blockNumber: receipt.blockNumber,
       };
     } catch (error) {
-      console.error("Error fetching flight details:", error);
+      console.error("Error updating flight status:", error);
       throw error;
     }
   }
+
+  /**
+   * Get all flight events within a date range
+   * @param {string} flightNumber - The flight number
+   * @param {string} fromDate - Start date in MM-DD-YYYY format
+   * @param {string} toDate - End date in MM-DD-YYYY format
+   * @param {string} carrierCode - The carrier code (e.g., UA)
+   * @returns {Promise<Array>} - Array of flight events
+   */
+  async getFlightDetailsByDateRange(
+    flightNumber,
+    fromDate,
+    toDate,
+    carrierCode
+  ) {
+    try {
+      if (!flightNumber || !fromDate || !toDate || !carrierCode) {
+        throw new Error("Invalid input parameters");
+      }
+
+      const detailsArray = await this.contract.getFlightDetails(
+        flightNumber,
+        fromDate,
+        toDate,
+        carrierCode
+      );
+
+      console.log(detailsArray.flightData);
+      console.log(detailsArray.utcTime);
+      console.log(detailsArray.status);
+
+      return detailsArray.map((detail) => {
+        const marketedSegments = detail.marketedSegments.map((segment) => ({
+          marketingAirlineCode: segment.MarketingAirlineCode,
+          flightNumber: segment.FlightNumber,
+        }));
+
+        return {
+          flightNumber: detail.flightData.flightNumber,
+          scheduledDepartureDate: detail.scheduledDepartureDate,
+          carrierCode: detail.flightData.carrierCode,
+          arrivalCity: detail.flightData.arrivalCity,
+          departureCity: detail.flightData.departureCity,
+          arrivalAirport: detail.flightData.arrivalAirport,
+          departureAirport: detail.flightData.departureAirport,
+          operatingAirlineCode: detail.flightData.operatingAirlineCode,
+          arrivalGate: detail.flightData.arrivalGate,
+          departureGate: detail.flightData.departureGate,
+          flightStatus: detail.flightData.flightStatus,
+          equipmentModel: detail.flightData.equipmentModel,
+          utcTimes: {
+            actualArrival: detail.utcTime.actualArrivalUTC,
+            actualDeparture: detail.utcTime.actualDepartureUTC,
+            estimatedArrival: detail.utcTime.estimatedArrivalUTC,
+            estimatedDeparture: detail.utcTime.estimatedDepartureUTC,
+            scheduledArrival: detail.utcTime.scheduledArrivalUTC,
+            scheduledDeparture: detail.utcTime.scheduledDepartureUTC,
+            arrivalDelayMinutes: detail.utcTime.arrivalDelayMinutes,
+            departureDelayMinutes: detail.utcTime.departureDelayMinutes,
+            bagClaim: detail.utcTime.bagClaim,
+          },
+          status: {
+            statusCode: detail.status.flightStatusCode,
+            statusDescription: detail.status.flightStatusDescription,
+            arrivalState: detail.status.ArrivalState,
+            departureState: detail.status.DepartureState,
+            outUtc: detail.status.outUtc,
+            offUtc: detail.status.offUtc,
+            onUtc: detail.status.onUtc,
+            inUtc: detail.status.inUtc,
+          },
+          marketedFlightSegments: marketedSegments,
+          currentStatus: detail.currentStatus,
+        };
+      });
+    } catch (error) {
+      console.error("Error fetching flight details by date range:", error);
+      throw error;
+    }
+  }
+
   async addFlightSubscription(flightNumber, carrierCode, departureAirport) {
     if (!this.contractWithSigner) {
       throw new Error("Wallet not configured for transactions");

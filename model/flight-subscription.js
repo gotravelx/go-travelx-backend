@@ -1,12 +1,10 @@
-// model/flightSubscription.js
 import mongoose from "mongoose";
 
-// Define the FlightSubscription schema
 const flightSubscriptionSchema = new mongoose.Schema(
   {
     walletAddress: {
       type: String,
-      required: true, // User's wallet address (assumed to be a string)
+      required: true,
     },
     flightNumber: {
       type: String,
@@ -22,28 +20,27 @@ const flightSubscriptionSchema = new mongoose.Schema(
     },
     subscriptionDate: {
       type: Date,
-      default: Date.now, // Default to the current date and time
+      default: Date.now,
     },
     blockchainTxHash: {
       type: String,
-      required: true, // Blockchain transaction hash to track the subscription
+      required: true,
     },
     flightSubscriptionStatus: {
       type: String,
       enum: ["subscribed", "cancelled", "active"],
-      default: "subscribed", // Subscription status
+      default: "subscribed",
     },
     isSubscriptionActive: {
       type: Boolean,
-      default: true, // Default to active subscription
+      default: true,
     },
   },
   {
-    timestamps: true, // Automatically add createdAt and updatedAt fields
+    timestamps: true,
   }
 );
 
-// Create the model for the FlightSubscription
 const FlightSubscription = mongoose.model(
   "FlightSubscription",
   flightSubscriptionSchema

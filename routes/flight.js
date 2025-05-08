@@ -2,24 +2,34 @@ import express from "express";
 import {
   addFlightSubscription,
   getAllSubscriptionOfUser,
+  getHistoricalData,
   getSubscribedFlights,
   unsubscribeFlights,
 } from "../controllers/flight.js";
-import { fetchFlightStatus } from "../controllers/api.js";
-const router = express.Router(); // Use express.Router() to define routes
+import {
+  updateToIn,
+  fetchFlightStatus,
+  updateToOff,
+  updateToOn,
+  updateToOut,
+} from "../controllers/api.js";
+import { decryptFlightData } from "../controllers/encrypt.js";
 
-// Import the insertFlight controller
+const router = express.Router();
 
-// Define a POST route to insert a flight
 router.post("/add-flight-subscription", addFlightSubscription);
 router.get("/get-flight-status/:flightNumber", fetchFlightStatus);
-router.get("/subscribed-flights/:walletAddress", getSubscribedFlights);
+router.get("/all-subscribed-flights/:walletAddress", getSubscribedFlights);
 router.get(
   "/subscribed-flights-details/:walletAddress",
   getAllSubscriptionOfUser
 );
-// Route to unsubscribe multiple flights
 router.post("/subscriptions/unsubscribe", unsubscribeFlights);
+router.post("/update/ndpt-to-out", updateToOut);
+router.post("/update/out-to-off", updateToOff);
+router.post("/update/off-to-on", updateToOn);
+router.post("/update/on-to-in", updateToIn);
+router.post("/decrypt-flight-data", decryptFlightData);
+router.get("/fetch-historical/:flightNumber/date-range", getHistoricalData);
 
-// Export the router
 export default router;
