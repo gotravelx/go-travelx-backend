@@ -145,6 +145,7 @@ export const prepareFlightDataForBlockchain = (flightData, encryptionKey) => {
     flightData.equipmentModel || "",
   ];
 
+  // Ensure bagClaim is defined by using null coalescing operator
   const blockchainUtcTimes = [
     flightData.actualArrivalUTC || "",
     flightData.actualDepartureUTC || "",
@@ -154,7 +155,7 @@ export const prepareFlightDataForBlockchain = (flightData, encryptionKey) => {
     flightData.scheduledDepartureUTCDateTime || "",
     String(flightData.arrivalDelayMinutes || "0"),
     String(flightData.departureDelayMinutes || "0"),
-    flightData.baggageClaim || "",
+    flightData.bagClaim || "", // Ensure bagClaim is properly defined with a default value
   ];
 
   const blockchainStatusData = [
@@ -165,7 +166,7 @@ export const prepareFlightDataForBlockchain = (flightData, encryptionKey) => {
     outTimeUTC, // index 4 - outTimeUTC
     offTimeUTC, // index 5 - offTimeUTC
     onTimeUTC, // index 6 - onTimeUTC
-    currentFlightTime, // index 7 - currentFlightTime (used for event)
+    inTimeUTC || currentFlightTime, // index 7 - inTimeUTC (used for event) - also ensure this has a value
   ];
 
   // Handle marketing segments - ensure at least one empty entry if empty

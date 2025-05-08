@@ -2,6 +2,7 @@ import express from "express";
 import {
   addFlightSubscription,
   getAllSubscriptionOfUser,
+  getHistoricalData,
   getSubscribedFlights,
   unsubscribeFlights,
 } from "../controllers/flight.js";
@@ -13,6 +14,7 @@ import {
   updateToOut,
 } from "../controllers/api.js";
 import { decryptFlightData } from "../controllers/encrypt.js";
+
 const router = express.Router();
 
 router.post("/add-flight-subscription", addFlightSubscription);
@@ -23,19 +25,11 @@ router.get(
   getAllSubscriptionOfUser
 );
 router.post("/subscriptions/unsubscribe", unsubscribeFlights);
-
-// flight simulation api 'start here -----------------------------------
-
 router.post("/update/ndpt-to-out", updateToOut);
 router.post("/update/out-to-off", updateToOff);
 router.post("/update/off-to-on", updateToOn);
 router.post("/update/on-to-in", updateToIn);
-
-// end here ------------------------------------------------------------
-
-// decryption data
-
 router.post("/decrypt-flight-data", decryptFlightData);
+router.get("/fetch-historical/:flightNumber/date-range", getHistoricalData);
 
-// Export the router
 export default router;

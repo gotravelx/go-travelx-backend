@@ -46,7 +46,7 @@
 
 - departureDelayMinutes
 
-- baggageClaim
+- bagClaim
 
 ### Status (4 fields)
 
@@ -62,8 +62,4 @@
 
 - inUtc
 
-
 ##### Total 24 fields
-
-
-  

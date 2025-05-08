@@ -96,6 +96,9 @@ export class FlightBlockchainService {
       // First try to estimate gas
       let estimatedGas;
       try {
+        console.log("utcTimes array:", utcTimes);
+        console.log("bagClaim (utcTimes[8]):", utcTimes[8]);
+
         estimatedGas =
           await this.contractWithSigner.estimateGas.insertFlightDetails(
             sanitizedFlightData,
@@ -219,30 +222,82 @@ export class FlightBlockchainService {
     }
   }
 
-  // Retrieve flight details
-  async getFlightDetails(flightNumber, scheduledDepartureDate, carrierCode) {
+  /**
+   * Get all flight events within a date range
+   * @param {string} flightNumber - The flight number
+   * @param {string} fromDate - Start date in MM-DD-YYYY format
+   * @param {string} toDate - End date in MM-DD-YYYY format
+   * @param {string} carrierCode - The carrier code (e.g., UA)
+   * @returns {Promise<Array>} - Array of flight events
+   */
+  async getFlightDetailsByDateRange(
+    flightNumber,
+    fromDate,
+    toDate,
+    carrierCode
+  ) {
     try {
-      // Validate input parameters
-      if (!flightNumber || !scheduledDepartureDate || !carrierCode) {
+      if (!flightNumber || !fromDate || !toDate || !carrierCode) {
         throw new Error("Invalid input parameters");
       }
 
-      // Fetch flight details
-      const details = await this.contract.getFlightDetails(
+      const detailsArray = await this.contract.getFlightDetails(
         flightNumber,
-        scheduledDepartureDate,
+        fromDate,
+        toDate,
         carrierCode
       );
 
-      return {
-        flightData: details[0],
-        utcTime: details[1],
-        status: details[2],
-        marketedFlightSegments: details[3],
-        currentStatus: details[4],
-      };
+      console.log(detailsArray.flightData);
+      console.log(detailsArray.utcTime);
+      console.log(detailsArray.status);
+
+      return detailsArray.map((detail) => {
+        const marketedSegments = detail.marketedSegments.map((segment) => ({
+          marketingAirlineCode: segment.MarketingAirlineCode,
+          flightNumber: segment.FlightNumber,
+        }));
+
+        return {
+          flightNumber: detail.flightData.flightNumber,
+          scheduledDepartureDate: detail.scheduledDepartureDate,
+          carrierCode: detail.flightData.carrierCode,
+          arrivalCity: detail.flightData.arrivalCity,
+          departureCity: detail.flightData.departureCity,
+          arrivalAirport: detail.flightData.arrivalAirport,
+          departureAirport: detail.flightData.departureAirport,
+          operatingAirlineCode: detail.flightData.operatingAirlineCode,
+          arrivalGate: detail.flightData.arrivalGate,
+          departureGate: detail.flightData.departureGate,
+          flightStatus: detail.flightData.flightStatus,
+          equipmentModel: detail.flightData.equipmentModel,
+          utcTimes: {
+            actualArrival: detail.utcTime.actualArrivalUTC,
+            actualDeparture: detail.utcTime.actualDepartureUTC,
+            estimatedArrival: detail.utcTime.estimatedArrivalUTC,
+            estimatedDeparture: detail.utcTime.estimatedDepartureUTC,
+            scheduledArrival: detail.utcTime.scheduledArrivalUTC,
+            scheduledDeparture: detail.utcTime.scheduledDepartureUTC,
+            arrivalDelayMinutes: detail.utcTime.arrivalDelayMinutes,
+            departureDelayMinutes: detail.utcTime.departureDelayMinutes,
+            bagClaim: detail.utcTime.bagClaim,
+          },
+          status: {
+            statusCode: detail.status.flightStatusCode,
+            statusDescription: detail.status.flightStatusDescription,
+            arrivalState: detail.status.ArrivalState,
+            departureState: detail.status.DepartureState,
+            outUtc: detail.status.outUtc,
+            offUtc: detail.status.offUtc,
+            onUtc: detail.status.onUtc,
+            inUtc: detail.status.inUtc,
+          },
+          marketedFlightSegments: marketedSegments,
+          currentStatus: detail.currentStatus,
+        };
+      });
     } catch (error) {
-      console.error("Error fetching flight details:", error);
+      console.error("Error fetching flight details by date range:", error);
       throw error;
     }
   }

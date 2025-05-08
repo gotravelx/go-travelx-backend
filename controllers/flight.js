@@ -5,6 +5,8 @@ import { fetchFlightStatusData } from "./api.js";
 import blockchainService from "../utils/flightBlockchainService.js";
 import FlightSubscription from "../model/flight-subscription.js";
 import { prepareFlightDataForBlockchain } from "./encrypt.js";
+import isValidDateFormat from "../middleware/isvalidate.js";
+import { FlightBlockchainService } from "../utils/contract.js";
 
 dotenv.config();
 const encryptionKey = process.env.ENCRYPTION_KEY;
@@ -48,7 +50,7 @@ const saveFlightDataToMongoDB = async (flightData, transactionHash) => {
       statusCode: flightData.statusCode,
       flightStatusDescription: flightData.flightStatusDescription,
       currentFlightStatus: flightData.currentFlightStatus || "ndpt", // Fixed this line
-      baggageClaim: flightData.baggageClaim,
+      bagClaim: flightData.bagClaim,
       departureDelayMinutes: Number(departureDelayMinutes),
       arrivalDelayMinutes: Number(arrivalDelayMinutes),
       MarketedFlightSegment: flightData.marketedFlightSegment.map(
@@ -154,6 +156,7 @@ export const addFlightSubscription = async (req, res) => {
     console.log("[API] Flight Data Retrieved Successfully", {
       flightNumber: flightData.flightNumber,
       carrierCode: flightData.carrierCode,
+      flightData,
     });
 
     // 2. Check if flight exists in blockchain
@@ -337,7 +340,7 @@ export const startFlightStatusMonitoring = () => {
       );
 
       const todaysFlights = await FlightData.find({
-        scheduledDepartureDate: new Date().toISOString().split("T")[0], // YYYY-MM-DD
+        scheduledDepartureDate: new Date().toISOString().split("T")[0],
       });
 
       console.log(
@@ -747,4 +750,50 @@ export const unsubscribeFlights = async (req, res) => {
     res.status(500).json({ error: "Internal server error" });
   }
 };
+
+export const getHistoricalData = async (req, res) => {
+  try {
+    const { flightNumber } = req.params;
+    const { fromDate, toDate, carrierCode } = req.query;
+
+    // Validate required parameters
+    if (!flightNumber || !fromDate || !toDate || !carrierCode) {
+      return res.status(400).json({
+        error:
+          "Missing required parameters. Need flightNumber, fromDate, toDate, and carrierCode",
+      });
+    }
+
+    // Validate date formats
+    // if (!isValidDateFormat(fromDate) || !isValidDateFormat(toDate)) {
+    //   return res.status(400).json({
+    //     error: "Invalid date format. Please use MM-DD-YYYY format",
+    //   });
+    // }
+
+    // Call blockchain service
+    const flightDetails = await blockchainService.getFlightDetailsByDateRange(
+      flightNumber,
+      fromDate,
+      toDate,
+      carrierCode
+    );
+
+    // Return data
+    res.json({
+      flightNumber,
+      fromDate,
+      toDate,
+      carrierCode,
+      flightDetails,
+    });
+  } catch (error) {
+    console.error("Error fetching flight details:", error);
+    res.status(500).json({
+      error: "Failed to fetch flight details",
+      message: error.message,
+    });
+  }
+};
+
 startFlightStatusMonitoring();

@@ -43,7 +43,7 @@ const DataSourceSchema = new mongoose.Schema(
       enum: ["ndpt", "out", "off", "on", "in"],
       default: "ndpt",
     },
-    baggageClaim: String,
+    bagClaim: String,
     departureDelayMinutes: {
       type: Number,
       default: 0,
