@@ -1,5 +1,6 @@
 import crypto from "crypto";
 import dotenv from "dotenv";
+import customLogger from "../utils/logger.js";
 // Function to encrypt a string
 dotenv.config();
 
@@ -241,7 +242,7 @@ const decryptString = (encryptedStr, encryptionKey) => {
 
     return decrypted;
   } catch (error) {
-    console.error(`Decryption failed: ${error.message}`);
+    customLogger.error(`Decryption failed: ${error.message}`);
     return encryptedStr;
   }
 };
