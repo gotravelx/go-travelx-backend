@@ -1,5 +1,6 @@
 import ethers from "ethers";
 import dotenv from "dotenv";
+import customLogger from "./logger.js";
 
 dotenv.config();
 
@@ -42,7 +43,7 @@ export class FlightBlockchainService {
           await this.contract.isFlightExist("");
           return true;
         } catch (error) {
-          console.error("Contract connectivity check failed:", error);
+          customLogger.error("Contract connectivity check failed:", error);
           return false;
         }
       };
@@ -58,7 +59,7 @@ export class FlightBlockchainService {
         ),
       ]);
     } catch (error) {
-      console.error("Diagnostic check error:", error);
+      customLogger.error("Diagnostic check error:", error);
       return false;
     }
   }
@@ -108,7 +109,7 @@ export class FlightBlockchainService {
             sanitizedMarketingFlightNumbers
           );
       } catch (estimateError) {
-        console.error("Gas estimation failed:", estimateError);
+        customLogger.error("Gas estimation failed:", estimateError);
         throw new Error(
           "Transaction would fail. Check contract requirements and input data."
         );
@@ -136,7 +137,7 @@ export class FlightBlockchainService {
         blockNumber: receipt.blockNumber,
       };
     } catch (error) {
-      console.error("Error inserting flight details:", error);
+      customLogger.error("Error inserting flight details:", error);
       throw error;
     }
   }
@@ -188,7 +189,7 @@ export class FlightBlockchainService {
             sanitizedFlightStatusCode
           );
       } catch (estimateError) {
-        console.error("Gas estimation failed:", estimateError);
+        customLogger.error("Gas estimation failed:", estimateError);
         throw new Error(
           "Transaction would fail. Check contract requirements and input data."
         );
@@ -217,7 +218,7 @@ export class FlightBlockchainService {
         blockNumber: receipt.blockNumber,
       };
     } catch (error) {
-      console.error("Error updating flight status:", error);
+      customLogger.error("Error updating flight status:", error);
       throw error;
     }
   }
@@ -297,7 +298,7 @@ export class FlightBlockchainService {
         };
       });
     } catch (error) {
-      console.error("Error fetching flight details by date range:", error);
+      customLogger.error("Error fetching flight details by date range:", error);
       throw error;
     }
   }
@@ -329,7 +330,7 @@ export class FlightBlockchainService {
         blockNumber: receipt.blockNumber,
       };
     } catch (error) {
-      console.error("Error adding flight subscription:", error);
+      customLogger.error("Error adding flight subscription:", error);
       throw error;
     }
   }
@@ -384,7 +385,7 @@ export class FlightBlockchainService {
         unsubscribedCount: sanitizedFlightNumbers.length,
       };
     } catch (error) {
-      console.error("Error removing flight subscriptions:", error);
+      customLogger.error("Error removing flight subscriptions:", error);
       throw error;
     }
   }
@@ -400,7 +401,7 @@ export class FlightBlockchainService {
       // Check flight existence
       return await this.contract.isFlightExist(flightNumber);
     } catch (error) {
-      console.error("Error checking flight existence:", error);
+      customLogger.error("Error checking flight existence:", error);
       throw error;
     }
   }
@@ -426,7 +427,7 @@ export class FlightBlockchainService {
         departureAirport
       );
     } catch (error) {
-      console.error("Error checking flight subscription:", error);
+      customLogger.error("Error checking flight subscription:", error);
       throw error;
     }
   }

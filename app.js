@@ -4,6 +4,8 @@ import cookieParser from "cookie-parser";
 import cors from "cors";
 import flightRouter from "./routes/flight.js";
 import { connectDb } from "./config/db.config.js";
+import simulateFlightRouter from "./routes/simulate-flight.js";
+import logger from "./utils/logger.js";
 
 // Load environment variables
 dotenv.config();
@@ -42,17 +44,17 @@ app.use(express.static("public"));
 
 // ✅ Routes
 app.use("/v1/flights", flightRouter);
+app.use("/v1/simulate-flight", simulateFlightRouter);
 
-// ✅ Start Server After DB Connection
 const startServer = async () => {
+  logger.info("Starting server...");
   try {
     await connectDb();
-    console.log("✅ Database connected successfully");
     app.listen(PORT, () => {
-      console.log(`🚀 Server is running on http://localhost:${PORT}`);
+      logger.info(`✅ Server is running on port ${PORT}`);
     });
   } catch (error) {
-    console.error("❌ Server failed to start:", error);
+    logger.error("❌ Database connection failed:", error.message);
     process.exit(1);
   }
 };

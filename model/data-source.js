@@ -27,8 +27,16 @@ const DataSourceSchema = new mongoose.Schema(
     inTimeUTC: String,
     arrivalCity: String,
     departureCity: String,
-    arrivalState: String,
-    departureState: String,
+    arrivalState: {
+      type: String,
+      enum: ["ONT", "ERL", "DLY", "CNL", "PND", "DVT", "XST", "NST", "LCK"],
+      default: "ONT", // On Time is default
+    },
+    departureState: {
+      type: String,
+      enum: ["ONT", "DLY", "CNL", "PND", "DIV", "XSP", "NSP", "LCK"],
+      default: "ONT", // On Time is default
+    },
     arrivalAirport: String,
     departureAirport: String,
     departureGate: String,
@@ -36,11 +44,52 @@ const DataSourceSchema = new mongoose.Schema(
     departureTerminal: String,
     arrivalTerminal: String,
     equipmentModel: String,
-    statusCode: String,
-    flightStatusDescription: String,
+    statusCode: {
+      type: String,
+      enum: [
+        "NDPT",
+        "OUT",
+        "OFF",
+        "ON",
+        "IN",
+        "CNCL",
+        "RTBL",
+        "RTFL",
+        "DVRT",
+        "LOCK",
+      ],
+      default: "NDPT",
+    },
+    flightStatusDescription: {
+      type: String,
+      enum: [
+        "Not Departed",
+        "Departed Gate",
+        "In Flight",
+        "Landed",
+        "Arrived at Gate",
+        "Cancelled",
+        "Returned to Gate",
+        "Returned to Airport",
+        "Diverted",
+        "Contact United",
+      ],
+      default: "Not Departed",
+    },
     currentFlightStatus: {
       type: String,
-      enum: ["ndpt", "out", "off", "on", "in"],
+      enum: [
+        "ndpt",
+        "out",
+        "off",
+        "on",
+        "in",
+        "cncl",
+        "rtbl",
+        "rtfl",
+        "dvrt",
+        "lock",
+      ],
       default: "ndpt",
     },
     bagClaim: String,
@@ -53,14 +102,41 @@ const DataSourceSchema = new mongoose.Schema(
       default: 0,
     },
     marketedFlightSegment: [
-      // Changed from MarketedFlightSegment to match JSON key
       {
         MarketingAirlineCode: String,
         FlightNumber: String,
       },
     ],
     boardingTime: String,
-    isCanceled: Boolean, // Added this field from JSON
+    isCanceled: {
+      type: Boolean,
+      default: false,
+    },
+    isDiverted: {
+      type: Boolean,
+      default: false,
+    },
+    isReturnedToGate: {
+      type: Boolean,
+      default: false,
+    },
+    isReturnedToAirport: {
+      type: Boolean,
+      default: false,
+    },
+    isExtraStop: {
+      type: Boolean,
+      default: false,
+    },
+    isNoStop: {
+      type: Boolean,
+      default: false,
+    },
+    hasMishap: {
+      type: Boolean,
+      default: false,
+    },
+    decisionTimeUTC: String,
   },
   {
     timestamps: true,
