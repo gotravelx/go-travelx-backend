@@ -566,6 +566,11 @@ const ContractAbi = [
         type: "string",
       },
       {
+        internalType: "uint256",
+        name: "fromDateInTimeStamp",
+        type: "uint256",
+      },
+      {
         internalType: "string",
         name: "toDate",
         type: "string",
@@ -819,6 +824,30 @@ const ContractAbi = [
     inputs: [
       {
         internalType: "string",
+        name: "date1",
+        type: "string",
+      },
+      {
+        internalType: "string",
+        name: "date2",
+        type: "string",
+      },
+    ],
+    name: "isDateLessThanOrEqual",
+    outputs: [
+      {
+        internalType: "bool",
+        name: "",
+        type: "bool",
+      },
+    ],
+    stateMutability: "pure",
+    type: "function",
+  },
+  {
+    inputs: [
+      {
+        internalType: "string",
         name: "",
         type: "string",
       },
@@ -949,4 +978,5 @@ const ContractAbi = [
     type: "function",
   },
 ];
+
 export default ContractAbi;

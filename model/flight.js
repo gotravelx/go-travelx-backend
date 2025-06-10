@@ -1,5 +1,7 @@
 import mongoose from "mongoose";
 
+// flight event data schema need to change
+
 const flightDataSchema = new mongoose.Schema(
   {
     flightNumber: {

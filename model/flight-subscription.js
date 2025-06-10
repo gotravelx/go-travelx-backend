@@ -31,6 +31,7 @@ const flightSubscriptionSchema = new mongoose.Schema(
       enum: ["subscribed", "cancelled", "active"],
       default: "subscribed",
     },
+    // userSubscription state needs to change 
     isSubscriptionActive: {
       type: Boolean,
       default: true,
