@@ -213,22 +213,27 @@ const determinePhaseTransition = (currentPhase, newPhase) => {
 };
 
 export const startFlightStatusMonitoring = () => {
-  // Run every 1 minutes (using */1 as specified in the comment)
+  // Run every 3 minutes (using */3 as specified in the comment)
   const job = schedule.scheduleJob("*/1 * * * *", async () => {
     try {
       customLogger.info(
         "[CRON-JOB] Running scheduled flight status update check..."
       );
 
+      // Get current date in YYYY-MM-DD format
+      const currentDate = new Date().toISOString().split("T")[0];
+
+      // First, check and ensure we have today's flights
+      await checkAndCreateTodaysFlights(currentDate);
+
       const todaysFlights = await FlightData.find({
-        scheduledDepartureDate: new Date().toISOString().split("T")[0],
+        scheduledDepartureDate: currentDate,
       });
 
       customLogger.info(
-        `[CRON-JOB] Found ${todaysFlights.length} flights for today`
+        `[CRON-JOB] Found ${todaysFlights.length} flights for today (${currentDate})`
       );
 
-      // Track results
       const results = {
         total: todaysFlights.length,
         updated: 0,
@@ -237,7 +242,6 @@ export const startFlightStatusMonitoring = () => {
         blockchainUpdated: 0,
       };
 
-      // Check each flight for updates
       for (const flight of todaysFlights) {
         try {
           customLogger.info(
@@ -525,7 +529,143 @@ export const startFlightStatusMonitoring = () => {
   });
 
   customLogger.info(
-    "[CRON-JOB] Flight status monitoring started - checking every 5 minutes"
+    "[CRON-JOB] Flight status monitoring started - checking every 3 minutes"
   );
   return job;
 };
+
+/**
+ * Checks if today's flights exist and creates them from yesterday's data if needed
+ * This function runs on every cron job execution to ensure we have the latest data
+ * @param {string} currentDate - The current date in YYYY-MM-DD format
+ */
+async function checkAndCreateTodaysFlights(currentDate) {
+  try {
+    customLogger.info(
+      `[FLIGHT-CHECK] Checking flights for date ${currentDate}...`
+    );
+
+    const subscribedFlights = await FlightData.find({});
+
+    customLogger.info(
+      `[FLIGHT-CHECK] Found ${subscribedFlights.length} subscribed flight numbers`
+    );
+
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+    const yesterdayStr = yesterday.toISOString().split("T")[0];
+
+    let created = 0;
+    let skipped = 0;
+    let failed = 0;
+
+    for (const flightNumber of subscribedFlights) {
+      try {
+        const existingTodayFlight = await FlightData.findOne({
+          flightNumber: flightNumber,
+          scheduledDepartureDate: currentDate,
+        });
+
+        if (existingTodayFlight) {
+          skipped++;
+          continue;
+        }
+
+        const yesterdayFlight = await FlightData.findOne({
+          flightNumber: flightNumber,
+          scheduledDepartureDate: yesterdayStr,
+        });
+
+        if (!yesterdayFlight) {
+          customLogger.warn(
+            `[FLIGHT-CHECK] No previous data found for flight ${flightNumber} for yesterday (${yesterdayStr})`
+          );
+          skipped++;
+          continue;
+        }
+
+        // Fetch latest flight data from external API for today's date
+        const newFlightData = await fetchFlightStatusData(
+          flightNumber,
+          currentDate,
+          yesterdayFlight.departureAirport
+        );
+
+        if (!newFlightData) {
+          customLogger.warn(
+            `[FLIGHT-CHECK] No data found for flight ${flightNumber} for today (${currentDate})`
+          );
+          skipped++;
+          continue;
+        }
+
+        // Create a new flight entry for today based on yesterday's flight and new data
+        const newFlightEntry = new FlightData({
+          ...newFlightData,
+          flightNumber: flightNumber,
+          departureAirport: yesterdayFlight.departureAirport,
+          arrivalAirport: yesterdayFlight.arrivalAirport,
+          scheduledDepartureDate: currentDate,
+          currentFlightStatus: newFlightData.currentFlightStatus || "ndpt",
+          statusCode: newFlightData.statusCode || "NDPT",
+          isSubscribed: true, // Mark as subscribed since we're tracking it
+          createdAt: new Date(),
+          lastUpdated: new Date(),
+          blockchainUpdated: false,
+        });
+
+        // Save to MongoDB
+        await newFlightEntry.save();
+
+        // Update blockchain with initial flight data
+        try {
+          const {
+            blockchainFlightData,
+            blockchainUtcTimes,
+            blockchainStatusData,
+            marketingAirlineCodes,
+            marketingFlightNumbers,
+          } = prepareFlightDataForBlockchain(newFlightEntry, encryptionKey);
+
+          const blockchainResponse =
+            await blockchainService.insertFlightDetails(
+              blockchainFlightData,
+              blockchainUtcTimes,
+              blockchainStatusData,
+              marketingAirlineCodes,
+              marketingFlightNumbers
+            );
+
+          // Mark as updated in blockchain
+          await FlightData.findByIdAndUpdate(newFlightEntry._id, {
+            blockchainUpdated: true,
+            blockchainTxHash: blockchainResponse.transactionHash,
+          });
+
+          customLogger.info(
+            `[FLIGHT-CHECK] Successfully created and tracked flight ${newFlightEntry.flightNumber} for today (${currentDate})`
+          );
+          created++;
+        } catch (blockchainError) {
+          customLogger.error(
+            `[BLOCKCHAIN ERROR] Failed to update blockchain for new flight ${newFlightEntry.flightNumber}: ${blockchainError.message}`
+          );
+          // Will be retried in the main flight status update routine
+        }
+      } catch (flightError) {
+        customLogger.error(
+          `[FLIGHT-CHECK ERROR] Error creating flight ${flightNumber} for today: ${flightError.message}`
+        );
+        failed++;
+      }
+    }
+
+    customLogger.info(
+      `[FLIGHT-CHECK] Flight checking completed. Results: Created: ${created}, Skipped: ${skipped}, Failed: ${failed}`
+    );
+  } catch (error) {
+    customLogger.error(
+      `[FLIGHT-CHECK ERROR] Error in checking today's flights: ${error.message}`
+    );
+  }
+}

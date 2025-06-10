@@ -9,7 +9,6 @@ import customLogger from "../utils/logger.js";
 
 dotenv.config();
 const encryptionKey = process.env.ENCRYPTION_KEY;
-customLogger.warn(`[BLOCKCHAIN] Encryption Key ${encryptionKey}`);
 
 const saveFlightDataToMongoDB = async (flightData, transactionHash) => {
   try {
@@ -205,7 +204,6 @@ export const addFlightSubscription = async (req, res) => {
           encryptionKey
         );
 
-        // The blockchain service will receive data where only specific fields are unencrypted
         const blockchainInsertService =
           await blockchainService.insertFlightDetails(
             preparedData.blockchainFlightData, // Contains mix of encrypted and unencrypted data
@@ -588,6 +586,70 @@ export const unsubscribeFlights = async (req, res) => {
     // Step 8: Handle errors
     customLogger.error("Error unsubscribing flights:", error);
     res.status(500).json({ error: "Internal server error" });
+  }
+};
+
+export const insertFlightInBlockchainTemporarily = async (req, res) => {
+  try {
+    const {
+      flightNumber,
+      scheduledDepartureDate,
+      departureAirport,
+      carrierCode,
+      walletAddress,
+    } = req.body;
+
+    const flightData = await fetchFlightStatusData(
+      flightNumber,
+      scheduledDepartureDate,
+      departureAirport
+    );
+
+    const preparedData = prepareFlightDataForBlockchain(
+      flightData,
+      encryptionKey
+    );
+
+    const blockchainInsertService = await blockchainService.insertFlightDetails(
+      preparedData.blockchainFlightData,
+      preparedData.blockchainUtcTimes,
+      preparedData.blockchainStatusData,
+      preparedData.marketingAirlineCodes,
+      preparedData.marketingFlightNumbers
+    );
+
+    console.log("[BLOCKCHAIN] Flight Details Inserted Successfully", {
+      flightNumber: flightData.flightNumber,
+      transactionHash: blockchainInsertService.transactionHash,
+    });
+
+    const flightInsert = await saveFlightDataToMongoDB(
+      flightData,
+      blockchainInsertService.transactionHash
+    );
+    console.log("[API] Flight Details Inserted Successfully In Mongodb", {
+      flightNumber: flightData.flightNumber,
+      flightInsert,
+    });
+
+    res.status(200).json({
+      success: true,
+      message: "Flight details inserted successfully",
+      flightData: flightInsert,
+    });
+  } catch (insertError) {
+    // customLogger.error("[BLOCKCHAIN] Error Inserting Flight Details", {
+    //   flightNumber: flightData.flightNumber,
+    //   error: insertError.message,
+    // });
+    // console.log("[API] Error Inserting Flight Details In Mongodb", {
+    //   flightNumber: flightData.flightNumber,
+    //   error: insertError.message,
+    // });
+    return res.status(500).json({
+      error: "Failed to insert flight details in blockchain",
+      details: insertError.message,
+    });
   }
 };
 

@@ -12,22 +12,18 @@ export class FlightBlockchainService {
     privateKey,
     walletAddress
   ) {
-    // Initialize ethers provider
     this.provider = new ethers.providers.JsonRpcProvider(providerUrl);
 
-    // Create contract instance
     this.contract = new ethers.Contract(
       contractAddress,
       contractABI,
       this.provider
     );
 
-    // Set up wallet for transactions
     this.privateKey = privateKey;
     this.walletAddress = walletAddress;
     this.contractAddress = contractAddress;
 
-    // Create wallet if private key is provided
     if (privateKey) {
       this.wallet = new ethers.Wallet(privateKey, this.provider);
       this.contractWithSigner = this.contract.connect(this.wallet);
@@ -36,10 +32,8 @@ export class FlightBlockchainService {
 
   async diagnosticContractCheck() {
     try {
-      // Perform a simple read-only contract interaction to check connectivity
       const checkMethod = async () => {
         try {
-          // Use isFlightExist with an empty string as a safe test
           await this.contract.isFlightExist("");
           return true;
         } catch (error) {
@@ -48,7 +42,6 @@ export class FlightBlockchainService {
         }
       };
 
-      // Add a timeout to prevent hanging
       return await Promise.race([
         checkMethod(),
         new Promise((_, reject) =>
@@ -64,7 +57,6 @@ export class FlightBlockchainService {
     }
   }
 
-  // Insert flight details into the blockchain
   async insertFlightDetails(
     flightData,
     utcTimes,
@@ -77,7 +69,6 @@ export class FlightBlockchainService {
     }
 
     try {
-      // Validate and sanitize input
       const sanitizedFlightData = flightData.map((item) =>
         item !== null && item !== undefined ? String(item) : ""
       );
@@ -94,12 +85,8 @@ export class FlightBlockchainService {
         (item) => (item !== null && item !== undefined ? String(item) : "")
       );
 
-      // First try to estimate gas
       let estimatedGas;
       try {
-        console.log("utcTimes array:", utcTimes);
-        console.log("bagClaim (utcTimes[8]):", utcTimes[8]);
-
         estimatedGas =
           await this.contractWithSigner.estimateGas.insertFlightDetails(
             sanitizedFlightData,
@@ -115,10 +102,8 @@ export class FlightBlockchainService {
         );
       }
 
-      // Add a buffer to the estimated gas (e.g., 20% more)
       const gasLimit = estimatedGas.mul(120).div(100);
 
-      // Perform the transaction with manual gas limit
       const tx = await this.contractWithSigner.insertFlightDetails(
         sanitizedFlightData,
         sanitizedUtcTimes,
@@ -128,7 +113,6 @@ export class FlightBlockchainService {
         { gasLimit }
       );
 
-      // Wait for transaction confirmation
       const receipt = await tx.wait();
 
       return {
@@ -142,7 +126,6 @@ export class FlightBlockchainService {
     }
   }
 
-  // New function to update flight status
   async updateFlightStatus(
     flightNumber,
     scheduledDepartureDate,
@@ -223,14 +206,6 @@ export class FlightBlockchainService {
     }
   }
 
-  /**
-   * Get all flight events within a date range
-   * @param {string} flightNumber - The flight number
-   * @param {string} fromDate - Start date in MM-DD-YYYY format
-   * @param {string} toDate - End date in MM-DD-YYYY format
-   * @param {string} carrierCode - The carrier code (e.g., UA)
-   * @returns {Promise<Array>} - Array of flight events
-   */
   async getFlightDetailsByDateRange(
     flightNumber,
     fromDate,
@@ -242,9 +217,13 @@ export class FlightBlockchainService {
         throw new Error("Invalid input parameters");
       }
 
+      const fromTimestamp = new Date(fromDate).getTime();
+      console.log(fromTimestamp);
+
       const detailsArray = await this.contract.getFlightDetails(
         flightNumber,
         fromDate,
+        fromTimestamp,
         toDate,
         carrierCode
       );
@@ -299,6 +278,10 @@ export class FlightBlockchainService {
       });
     } catch (error) {
       customLogger.error("Error fetching flight details by date range:", error);
+
+      if (error.message && error.message.includes("Flight does not exist")) {
+        return "Flight does not exist";
+      }
       throw error;
     }
   }
@@ -335,7 +318,6 @@ export class FlightBlockchainService {
     }
   }
 
-  // Remove flight subscriptions
   async removeFlightSubscriptions(
     flightNumbers,
     carrierCodes,
@@ -390,7 +372,6 @@ export class FlightBlockchainService {
     }
   }
 
-  // Check if a flight exists
   async checkFlightExistence(flightNumber) {
     try {
       // Validate input parameter
@@ -406,7 +387,6 @@ export class FlightBlockchainService {
     }
   }
 
-  // Check flight subscription status
   async checkFlightSubscription(
     userAddress,
     flightNumber,
@@ -433,7 +413,6 @@ export class FlightBlockchainService {
   }
 }
 
-// Export a function to create the service with configuration
 export const createFlightBlockchainService = (
   providerUrl,
   contractAddress,

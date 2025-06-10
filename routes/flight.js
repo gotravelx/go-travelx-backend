@@ -4,6 +4,7 @@ import {
   getAllSubscriptionOfUser,
   getHistoricalData,
   getSubscribedFlights,
+  insertFlightInBlockchainTemporarily,
   unsubscribeFlights,
 } from "../controllers/flight.js";
 import { fetchFlightStatus } from "../controllers/api.js";
@@ -21,5 +22,7 @@ router.get(
 router.post("/subscriptions/unsubscribe", unsubscribeFlights);
 router.post("/decrypt-flight-data", decryptFlightData);
 router.get("/fetch-historical/:flightNumber/date-range", getHistoricalData);
+
+router.post("/insert-flight-temporarily", insertFlightInBlockchainTemporarily);
 
 export default router;
