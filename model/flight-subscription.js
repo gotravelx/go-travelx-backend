@@ -22,19 +22,13 @@ const flightSubscriptionSchema = new mongoose.Schema(
       type: Date,
       default: Date.now,
     },
-    blockchainTxHash: {
-      type: String,
-      required: true,
-    },
-    flightSubscriptionStatus: {
-      type: String,
-      enum: ["subscribed", "cancelled", "active"],
-      default: "subscribed",
-    },
-    // userSubscription state needs to change 
     isSubscriptionActive: {
       type: Boolean,
       default: true,
+    },
+    blockchainTxHash: {
+      type: String,
+      required: true,
     },
   },
   {

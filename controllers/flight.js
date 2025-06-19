@@ -653,4 +653,4 @@ export const insertFlightInBlockchainTemporarily = async (req, res) => {
   }
 };
 
-startFlightStatusMonitoring();
+// startFlightStatusMonitoring();
