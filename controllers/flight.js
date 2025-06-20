@@ -1,11 +1,11 @@
 import FlightData from "../model/flight.js";
 import dotenv from "dotenv";
-import { fetchFlightStatusData } from "./api.js";
 import blockchainService from "../utils/flightBlockchainService.js";
 import FlightSubscription from "../model/flight-subscription.js";
 import { prepareFlightDataForBlockchain } from "./encrypt.js";
 import { startFlightStatusMonitoring } from "./cron-job.js";
 import customLogger from "../utils/logger.js";
+import { fetchFlightData } from "./api.js";
 
 dotenv.config();
 const encryptionKey = process.env.ENCRYPTION_KEY;
@@ -148,7 +148,7 @@ export const addFlightSubscription = async (req, res) => {
       walletAddress,
     });
 
-    const flightData = await fetchFlightStatusData(
+    const flightData = await fetchFlightData(
       flightNumber,
       scheduledDepartureDate,
       departureAirport
@@ -595,11 +595,9 @@ export const insertFlightInBlockchainTemporarily = async (req, res) => {
       flightNumber,
       scheduledDepartureDate,
       departureAirport,
-      carrierCode,
-      walletAddress,
     } = req.body;
 
-    const flightData = await fetchFlightStatusData(
+    const flightData = await fetchFlightData(
       flightNumber,
       scheduledDepartureDate,
       departureAirport
@@ -638,14 +636,6 @@ export const insertFlightInBlockchainTemporarily = async (req, res) => {
       flightData: flightInsert,
     });
   } catch (insertError) {
-    // customLogger.error("[BLOCKCHAIN] Error Inserting Flight Details", {
-    //   flightNumber: flightData.flightNumber,
-    //   error: insertError.message,
-    // });
-    // console.log("[API] Error Inserting Flight Details In Mongodb", {
-    //   flightNumber: flightData.flightNumber,
-    //   error: insertError.message,
-    // });
     return res.status(500).json({
       error: "Failed to insert flight details in blockchain",
       details: insertError.message,

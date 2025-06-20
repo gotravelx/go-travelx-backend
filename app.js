@@ -3,10 +3,14 @@ import express from "express";
 import cookieParser from "cookie-parser";
 import cors from "cors";
 import flightRouter from "./routes/flight.js";
-import simulateFlightRouter from "./routes/simulate-flight.js";
+
 import logger from "./utils/logger.js";
 import { connectDynamoDB } from "./config/dynamodb.js";
 import airPortCodesRouter from "./routes/airportCodes.js";
+import { connectDb } from "./config/db.config.js";
+import TokenRefresher from "./helper/0authTokenManager.js";
+import tokenConfig from "./config/0authTokenConfig.js";
+import { fetchFlightData } from "./controllers/api.js";
 
 dotenv.config();
 
@@ -34,6 +38,9 @@ app.use(
   })
 );
 
+// united  token refresh function
+new TokenRefresher(tokenConfig);
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
@@ -41,18 +48,16 @@ app.use(express.static("public"));
 const version = process.env.VERSION;
 // Set up routes
 
-console.log(version);
+logger.info(`Application version ${version}`);
 // Flight routes
 
 app.use(`/${version}/flights`, flightRouter);
 
-// Simulate flight routes
-
-app.use(`/${version}/simulate-flight`, simulateFlightRouter);
-
 // Station codes routes
 
 app.use(`/${version}/airport-codes`, airPortCodesRouter);
+
+
 
 // Health check endpoint
 app.get("/health", (req, res) => {
@@ -67,6 +72,7 @@ const startServer = async () => {
   logger.info("Starting server...");
   try {
     // connect to DynamoDB
+    await connectDb();
     await connectDynamoDB();
     app.listen(PORT, () => {
       logger.info(`Server is running on port ${PORT}`);

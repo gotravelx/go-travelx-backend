@@ -1,9 +1,10 @@
 import schedule from "node-schedule";
 import FlightData from "../model/flight.js";
-import { fetchFlightStatusData } from "./api.js";
+
 import { prepareFlightDataForBlockchain } from "./encrypt.js";
 import blockchainService from "../utils/flightBlockchainService.js";
 import customLogger from "../utils/logger.js";
+import { fetchFlightData } from "./api.js";
 
 const encryptionKey = process.env.ENCRYPTION_KEY;
 
@@ -277,8 +278,8 @@ export const startFlightStatusMonitoring = () => {
             `[CRON-JOB] Fetching latest data for flight ${flight.flightNumber}`
           );
 
-          const newFlightData = await fetchFlightStatusData(
-            flight.flightNumber,
+          const newFlightData = await fetchFlightData(
+            flight.flightNumber, 
             flight.scheduledDepartureDate,
             flight.departureAirport
           );
@@ -585,7 +586,7 @@ async function checkAndCreateTodaysFlights(currentDate) {
         }
 
         // Fetch latest flight data from external API for today's date
-        const newFlightData = await fetchFlightStatusData(
+        const newFlightData = await fetchFlightData(
           flightNumber,
           currentDate,
           yesterdayFlight.departureAirport

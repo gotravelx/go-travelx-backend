@@ -1,24 +1,28 @@
 import fetch from "node-fetch";
 import https from "https";
 import dotenv from "dotenv";
-import FlightSubscription from "../model/flight-subscription.js";
-import DataSource from "../model/data-source.js";
-import customLogger from "../utils/logger.js";
+import logger from "../utils/logger.js";
+import TokenRefresher from "../helper/0authTokenManager.js";
+import tokenConfig from "../config/0authTokenConfig.js";
+
 const agent = new https.Agent({
   rejectUnauthorized: false,
 });
 
 dotenv.config();
 
+const tokenRefresher = new TokenRefresher(tokenConfig);
+
 export const fetchFlightData = async (flightNumber, options = {}) => {
   try {
-    console.log(
+    logger.info(
       `[API] Fetching flight ${flightNumber} , data from external API...`
     );
 
     if (!flightNumber) {
       throw new Error("Flight number is required");
     }
+    
     console.log("--------------------------------->", process.env.API);
     let url = `${process.env.API}?fltNbr=${flightNumber}`;
 
@@ -31,24 +35,39 @@ export const fetchFlightData = async (flightNumber, options = {}) => {
       url += `&departure=${options.departure}`;
     }
 
-    console.log(`[API] Fetching flight data from: ${url}`);
+    logger.info(`[API] Fetching flight data from: ${url}`);
+
+    // Use the singleton instance and await the token
+    let token = await tokenRefresher.getToken();
+    console.log("--------------------->", token ? `${token.substring(0, 50)}...` : 'null');
+    
+    if (!token) {
+      throw new Error("Unable to obtain access token");
+    }
 
     const response = await fetch(url, {
       method: "GET",
       headers: {
         Accept: "application/json",
+        Authorization: `Bearer ${token}`,
       },
-      agent: agent,
-      timeout: 30000, // 30 second timeout
+      // agent: agent, // Uncomment if you need this
+      // timeout: 30000, // Note: fetch doesn't support timeout directly
     });
 
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
     const data = await response.json();
+
+    logger.info(`Response status: ${response.status}`);
 
     if (data.info && data.info[0].cd === "200") {
       if (data.flightStatusResp.Error) {
         const errorCode = data.flightStatusResp.Error[0].Code;
         const errorDescription = data.flightStatusResp.Error[0].Description;
-        console.log(`[API] Flight not found: ${errorDescription}`);
+        logger.info(`[API] Flight not found: ${errorDescription}`);
         return {
           success: false,
           errorMessage: `Sorry, we couldn't find flight ${flightNumber}. Please verify the flight number and try again.`,
@@ -58,7 +77,7 @@ export const fetchFlightData = async (flightNumber, options = {}) => {
           },
         };
       } else {
-        console.log(`[API] Successfully fetched flight ${flightNumber} data`);
+        logger.info(`[API] Successfully fetched flight ${flightNumber} data`);
         const segment =
           data.flightStatusResp.FlightLegs?.[0]?.OperationalFlightSegments?.[0];
         const scheduledSegment =
@@ -162,7 +181,7 @@ export const fetchFlightData = async (flightNumber, options = {}) => {
         return flightData;
       }
     } else {
-      console.log(
+      logger.info(
         `[API] API call failed: ${data.info?.[0]?.msg || "Unknown error"}`
       );
       return {
@@ -176,7 +195,7 @@ export const fetchFlightData = async (flightNumber, options = {}) => {
       };
     }
   } catch (error) {
-    console.log("[API] Error fetching flight data:", error);
+    logger.error("[API] Error fetching flight data:", error);
     return {
       success: false,
       errorMessage:
@@ -191,48 +210,19 @@ export const fetchFlightData = async (flightNumber, options = {}) => {
 export const fetchFlightDetails = async (req, res) => {
   try {
     const { flightNumber } = req.params;
-    const { departureDate, departure } = req.query;
-
-    const walletAddress =
-      req.headers["wallet-address"] || req.query.walletAddress;
-
-    if (!walletAddress) {
-      return res.status(400).json({
-        success: false,
-        errorMessage: "Wallet address is required",
-      });
-    }
+    const { departureDate, departure, arrival } = req.query;
 
     const flightData = await fetchFlightData(flightNumber, {
       departureDate,
       departure,
+      arrival
     });
 
-    const subscription = await FlightSubscription.findOne({
-      walletAddress,
-      flightNumber,
-      departureAirport: departure,
-    });
-
-    const isSubscribed = !!subscription;
-
-    const updatedFlightData = {
-      ...flightData,
-      isSubscribed: isSubscribed,
-    };
-
-    if (flightData.success) {
-      return res.status(200).json({
-        flightData: updatedFlightData,
-      });
-    } else {
-      return res.status(404).json({
-        errorMessage: "Flight data not found.",
-        flightData: updatedFlightData,
-      });
-    }
+    console.log(flightData);
+    
+    return res.status(200).json(flightData);
   } catch (error) {
-    customLogger.error("Error fetching flight details:", error);
+    logger.error("Error fetching flight details:", error);
     return res.status(500).json({
       success: false,
       errorMessage: "Server error while fetching flight details",
@@ -243,103 +233,3 @@ export const fetchFlightDetails = async (req, res) => {
   }
 };
 
-export const fetchFlightStatus = async (req, res) => {
-  try {
-    const { flightNumber } = req.params;
-    const { departureDate, departure } = req.query;
-
-    // Assuming walletAddress is sent via request headers or query
-    const walletAddress =
-      req.headers["wallet-address"] || req.query.walletAddress;
-
-    if (!walletAddress) {
-      return res.status(400).json({
-        success: false,
-        errorMessage: "Wallet address is required",
-      });
-    }
-
-    // Fetch flight data using Mongoose query
-    const flightData = await DataSource.findOne({
-      flightNumber: flightNumber,
-      scheduledDepartureDate: departureDate,
-      departureAirport: departure,
-    });
-
-    // If no flight data found
-    if (!flightData) {
-      return res.status(404).json({
-        success: false,
-        errorMessage: "Flight data not found.",
-      });
-    }
-
-    // Check if the user is subscribed to the flight
-    const subscription = await FlightSubscription.findOne({
-      walletAddress,
-      flightNumber,
-      departureAirport: departure,
-    });
-
-    const isSubscribed = !!subscription; // Check if subscription exists
-
-    // Create a new flight data object, adding isSubscribed
-    const updatedFlightData = {
-      ...flightData.toObject(), // Convert Mongoose document to plain object
-      isSubscribed: isSubscribed,
-    };
-
-    // Send the response with updated flight data
-    return res.status(200).json({
-      success: true,
-      flightData: updatedFlightData,
-    });
-  } catch (error) {
-    customLogger.error("Error fetching flight details:", error);
-    return res.status(500).json({
-      success: false,
-      errorMessage: "Server error while fetching flight details",
-      errorDetails: {
-        description: error.message,
-      },
-    });
-  }
-};
-
-export const fetchFlightStatusData = async (
-  flightNumber,
-  scheduledDepartureDate,
-  departureAirport
-) => {
-  try {
-    customLogger.info(
-      "Fetch Flight Status Data ",
-      flightNumber,
-      scheduledDepartureDate,
-      departureAirport
-    );
-
-    // Fetch flight data using Mongoose query
-    const flightData = await DataSource.findOne({
-      flightNumber,
-      scheduledDepartureDate,
-      departureAirport,
-    });
-
-    // console.log(">---------------- flightData", flightData);
-
-    // If no flight data found
-    if (!flightData) {
-      return null;
-    }
-
-    // Convert to plain object and remove _id
-    const flightDataObj = flightData.toObject();
-    delete flightDataObj._id;
-
-    return flightDataObj;
-  } catch (error) {
-    customLogger.error("Error fetching flight data:", error.message);
-    return null;
-  }
-};
