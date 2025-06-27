@@ -2,15 +2,13 @@ import dotenv from "dotenv";
 import express from "express";
 import cookieParser from "cookie-parser";
 import cors from "cors";
-import flightRouter from "./routes/flight.js";
-
-import logger from "./utils/logger.js";
-import { connectDynamoDB } from "./config/dynamodb.js";
-import airPortCodesRouter from "./routes/airportCodes.js";
-import { connectDb } from "./config/db.config.js";
+import FlightRouter from "./routes/FlightEventRoutes.js";
+import logger from "./utils/Logger.js";
+import { connectDynamoDB } from "./config/Dynamodb.js";
+import AirPortCodesRouter from "./routes/AirportCodesRoutes.js";
 import TokenRefresher from "./helper/0authTokenManager.js";
 import tokenConfig from "./config/0authTokenConfig.js";
-import { fetchFlightData } from "./controllers/api.js";
+import SubscriptionRouter from "./routes/SubscritionRoutes.js";
 
 dotenv.config();
 
@@ -38,28 +36,28 @@ app.use(
   })
 );
 
-// united  token refresh function
-new TokenRefresher(tokenConfig);
-
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 app.use(express.static("public"));
 const version = process.env.VERSION;
-// Set up routes
-
+/* ==================== Routes Setups ====================*/
 logger.info(`Application version ${version}`);
-// Flight routes
 
-app.use(`/${version}/flights`, flightRouter);
+/* ==================== Flight Event routes ========================= */
+app.use(`/${version}/flights`, FlightRouter);
+/* ==================== Flight Event routes ========================= */
 
-// Station codes routes
+/* ==================== Flight Event routes ========================= */
+app.use(`/${version}/subscription`, SubscriptionRouter);
+/* ==================== Flight Event routes ========================= */
 
-app.use(`/${version}/airport-codes`, airPortCodesRouter);
+/* ==================== Station codes routes ======================== */
+app.use(`/${version}/airport-codes`, AirPortCodesRouter);
+/* ==================== Station codes routes ======================== */
+/* ==================== Routes Setups End ====================*/
 
-
-
-// Health check endpoint
+/* ======================== Health Check Api  ======================*/
 app.get("/health", (req, res) => {
   res.status(200).json({
     status: "OK",
@@ -67,15 +65,16 @@ app.get("/health", (req, res) => {
     timestamp: new Date().toISOString(),
   });
 });
+/* ======================== Health Check Api  ======================*/
 
 const startServer = async () => {
   logger.info("Starting server...");
   try {
-    // connect to DynamoDB
-    await connectDb();
+    /* ================== United API CLASS SINGLE TON INSTANCE ================== */
     await connectDynamoDB();
+    new TokenRefresher(tokenConfig);
     app.listen(PORT, () => {
-      logger.info(`Server is running on port ${PORT}`);
+      logger.info(`🚀 Server is running on port ${PORT}`);
     });
   } catch (error) {
     logger.error("Database connection failed:", error.message);

@@ -10,7 +10,7 @@ import {
   searchAirportCodes,
   bulkInsertFromFile,
   deleteAllAirportCodes,
-} from "../controllers/airportCodesController.js";
+} from "../controllers/AirportCodesController.js";
 
 const router = express.Router();
 

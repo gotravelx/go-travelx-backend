@@ -1,6 +1,6 @@
 const TABLE_NAME = "AirportCodes";
 
-const airportCodeSchema = {
+const AirportCodesModel = {
   airPortCode: {
     type: String,
     required: true,
@@ -36,7 +36,7 @@ const updateAirportCodeItem = (existingItem, updates = {}) => {
 
 export {
   TABLE_NAME,
-  airportCodeSchema,
+  AirportCodesModel,
   createAirportCodeItem,
   updateAirportCodeItem,
 };

@@ -1,4 +1,4 @@
-import logger from "../utils/logger.js";
+import logger from "../utils/Logger.js";
 
 
 class TokenRefresher {
@@ -55,7 +55,7 @@ class TokenRefresher {
             this.tokenExpiry = Date.now() + (tokenData.expires_in * 1000);
             
             logger.info(`Token refreshed successfully. Expires in ${tokenData.expires_in} seconds`);
-            logger.info(`New token: ${this.currentToken.substring(0, 50)}...`);
+            // logger.info(`New token: ${this.currentToken.substring(0, 50)}...`);
             
             return this.currentToken;
         } catch (error) {
