@@ -1,67 +1,111 @@
-# GoTravelX - Flight Tracking System for Vendors
+# GoTravelX - Flight Tracking System
 
 ## Overview
 
-GoTravelX is a **Flight Tracking System** designed for vendors and cleaners to efficiently track flights and provide timely services. This system ensures that vendors can access real-time flight information and manage their tasks effectively.
+**GoTravelX** is a modern **Flight Tracking System** tailored for vendors and cleaners to track flights in real time and deliver services efficiently. This upgraded version now uses **AWS DynamoDB** for scalable and low-latency data access.
 
-## Tech Stack
+
+- **Check the log's here on camino blockchain**
+
+## 🧰 Tech Stack
 
 - **Backend**: Node.js (Express.js)
-- **Database**: MongoDB
-- **Environment**: Docker (Optional)
+- **Database**: AWS DynamoDB
 - **Port**: `3000`
 
-## Features
+## Implemented  Smart Contract Link
+```bash
+https://columbus.caminoscan.com/address/0x8b35578f223B76930De24a37dFAdc7A24a73dd23?tab=contract
+```
 
-- Real-time flight information tracking
-- Vendor and cleaner service management
-- RESTful API for seamless integration
-- Secure authentication and authorization
-- Scalable and efficient database management
+## ✈️ Core Features
 
-## Installation & Setup
+- Real-time flight status monitoring
+- Blockchain-backed flight history
+- Scalable, serverless DB with DynamoDB
+
+## 🔧 Installation & Setup
 
 ### Prerequisites
 
-Make sure you have the following installed:
-
 - [Node.js](https://nodejs.org/)
-- [MongoDB](https://www.mongodb.com/)
+- [AWS CLI](https://docs.aws.amazon.com/cli/latest/userguide/install-cliv2.html)
+- AWS IAM user credentials (Access Key & Secret)
+- [NoSQL Workbench for DynamoDB](https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/workbench.settingup.html) (for GUI exploration)
 
-### Steps to Run Locally
+### Setting Up Locally
 
-1. Clone the repository:
-   ```sh
-   git clone https://github.com/gotravelx/go-travelx-backend
-   cd go-travelx-backend
-   ```
-2. Install dependencies:
-   ```sh
-   npm install
-   ```
-3. Set up environment variables: Create a `.env` file and add the following:
-   ```env
-   PORT=3000
-   MONGO_URI=your_mongodb_connection_string
-   ```
-4. Start the server:
-   ```sh
-   npm start
-   ```
-5. Open your browser or use Postman to test the APIs at:
-   ```
-   http://localhost:3000
-   ```
+```bash
+# 1. Clone the project
+git clone https://github.com/gotravelx/go-travelx-backend
+cd go-travelx-backend
 
-## Contributing
+# 2. Install dependencies
+npm install
 
-Feel free to submit issues or pull requests to improve GoTravelX. Contributions are welcome!
+# 3. Configure your environment
+touch .env
+```
 
-## License
+Add the following to `.env`:
 
-This project is licensed under the MIT License.
-Hello
+```env
+PORT=3000
+AWS_ACCESS_KEY_ID=your_access_key
+AWS_SECRET_ACCESS_KEY=your_secret_key
+AWS_REGION=ap-south-1  # example: change as needed
+```
+
+Start the backend:
+
+```bash
+npm start
+```
+
+## 🧪 API Testing
+
+Use Postman or your browser to hit:
+
+```
+http://localhost:3000
+```
+
+## 🧑‍💻 Setting up NoSQL Workbench for DynamoDB
+
+> Helpful for visualizing and modeling tables.
+
+### 1. Install Workbench
+Download: [NoSQL Workbench Download](https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/workbench.settingup.html)
+
+### 2. Connect your AWS account
+
+- Open NoSQL Workbench
+- Go to **“Operations Builder” → “Add Connection”**
+- Fill in:
+
+  | Field       | Value                    |
+  |-------------|--------------------------|
+  | Access Key  | From your `.env`         |
+  | Secret Key  | From your `.env`         |
+  | Region      | `ap-south-1` (or yours)  |
+  | Session Token | (Optional if using temp creds) |
+
+### 3. Visualize Tables
+
+You can:
+
+- Design your data model in the **Data modeler**
+- Run queries in **Operation builder**
+- View live data in **Workbench viewer**
+
+## 👥 Contributing
+
+Pull requests welcome! Please follow the code style and naming conventions used in this repo.
+
+## 📝 License
+
+MIT License — use freely for commercial or personal use.
 
 ---
 
-Developed by **GoTravelx** 🚀
+Developed by **GoTravelX** 🚀
