@@ -1,6 +1,6 @@
 import crypto from "crypto";
 import dotenv from "dotenv";
-import customLogger from "../utils/logger.js";
+import customLogger from "../utils/Logger.js";
 // Function to encrypt a string
 dotenv.config();
 
@@ -44,6 +44,9 @@ export const selectiveEncrypt = (
 };
 
 export const prepareFlightDataForBlockchain = (flightData, encryptionKey) => {
+
+  console.log("prepareFlightDataForBlockchain --------------->",flightData);
+  
   // Validate required fields
   if (
     !flightData.flightNumber ||
@@ -171,7 +174,7 @@ export const prepareFlightDataForBlockchain = (flightData, encryptionKey) => {
   ];
 
   // Handle marketing segments - ensure at least one empty entry if empty
-  const marketingSegments = flightData.marketedFlightSegment || [{}];
+  const marketingSegments = flightData.marketedFlightSegment || [];
   const marketingAirlineCodes = marketingSegments.map(
     (segment) => segment.MarketingAirlineCode || ""
   );

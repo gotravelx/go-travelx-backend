@@ -1,6 +1,6 @@
 import ethers from "ethers";
 import dotenv from "dotenv";
-import customLogger from "./logger.js";
+import customLogger from "./Logger.js";
 
 dotenv.config();
 
@@ -69,6 +69,8 @@ export class FlightBlockchainService {
     }
 
     try {
+      console.log("flightData:", flightData);
+      
       const sanitizedFlightData = flightData.map((item) =>
         item !== null && item !== undefined ? String(item) : ""
       );
@@ -121,7 +123,7 @@ export class FlightBlockchainService {
         blockNumber: receipt.blockNumber,
       };
     } catch (error) {
-      customLogger.error("Error inserting flight details:", error);
+      customLogger.error("Error inserting flight details:", error.message);
       throw error;
     }
   }

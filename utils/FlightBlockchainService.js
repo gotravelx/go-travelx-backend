@@ -1,9 +1,11 @@
-import ContractAbi from "./abi.js";
+import ContractAbi from "./Abi.js";
 import dotenv from "dotenv";
-import { createFlightBlockchainService } from "./contract.js";
-import customLogger from "./logger.js";
+import { createFlightBlockchainService } from "./Contract.js";
+import logger from "./Logger.js";
 dotenv.config();
-// Environment configuration
+
+
+/* ================= BLOCKCHAIN ENVIRONMENT SETUP =================*/ 
 const contractABI = ContractAbi;
 const contractAddress = process.env.CONTRACT_ADDRESS;
 const walletAddress = process.env.WALLET_ADDRESS;
@@ -21,7 +23,7 @@ const blockchainService = createFlightBlockchainService(
 const isConnected = await blockchainService.diagnosticContractCheck();
 
 if (!isConnected) {
-  customLogger.error("Contract connectivity check failed");
-} else customLogger.info("✅ Blockchain service initialized successfully");
+  logger.error("Contract connectivity check failed");
+} else logger.info("Blockchain service initialized successfully");
 
 export default blockchainService;
