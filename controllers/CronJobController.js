@@ -69,6 +69,45 @@ export const startFlightStatusMonitoring = () => {
   return job;
 };
 
+
+export const startDayFlightMonitoring = () => {
+  // Run every 5 minutes
+  const job = scheduleJob.scheduleJob("*/1 * * * *", async () => {
+    try {
+      customLogger.info("Starting flight status monitoring job...");
+
+      // Get all active flight subscriptions that need monitoring
+      const activeSubscriptions = await getActiveFlightSubscriptions();
+
+      if (!activeSubscriptions || activeSubscriptions.length === 0) {
+        customLogger.info(
+          "No active flight subscriptions found for monitoring"
+        );
+        return;
+      }
+
+      customLogger.info(
+        `Found ${activeSubscriptions.length} active flight subscriptions to monitor`
+      );
+
+      // Process each unique flight (group by flightNumber + departureDate)
+      const uniqueFlights = getUniqueFlights(activeSubscriptions);
+
+      for (const flight of uniqueFlights) {
+        await processFlightStatusUpdate(flight);
+      }
+
+      customLogger.info("Flight status monitoring job completed successfully");
+    } catch (error) {
+      customLogger.error("Error in flight status monitoring job:", error);
+    }
+  });
+
+  customLogger.info("Flight status monitoring job scheduled (every 5 minutes)");
+  return job;
+};
+
+
 // Helper function to get active flight subscriptions
 const getActiveFlightSubscriptions = async () => {
   try {
