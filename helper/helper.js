@@ -35,15 +35,14 @@ export const getBlockchainData = async (flightStatusResp, encryptionKey) => {
   try {
     let flightData;
 
-    // Check if it's wrapped in success/flightData structure
     if (flightStatusResp?.success && flightStatusResp?.flightData) {
       flightData = flightStatusResp.flightData;
     }
-    // Check if it's direct flightStatusResp structure
+
     else if (flightStatusResp?.flightStatusResp) {
       flightData = flightStatusResp.flightStatusResp;
     }
-    // Check if it's already the flight data
+
     else if (flightStatusResp?.Flight) {
       flightData = flightStatusResp;
     } else {
@@ -66,6 +65,7 @@ export const getBlockchainData = async (flightStatusResp, encryptionKey) => {
         "Invalid flight status response structure - missing Flight or OperationalSegment data"
       );
     }
+
 
     // Extract flight statuses
     const flightStatuses = operationalSegment.FlightStatuses || [];
@@ -113,7 +113,7 @@ export const getBlockchainData = async (flightStatusResp, encryptionKey) => {
         operationalSegment.OperatingAirline?.IATACode ||
         scheduledSegment?.OperatingAirlineCode ||
         "",
-      scheduledDepartureDate: flight.FlightOriginationDate || "",
+      scheduledDepartureDate: flight.FlightOriginationDate || flight.DepartureDate || "",
 
       // Basic flight information
       arrivalCity: operationalSegment.ArrivalAirport?.Address?.City || "",
@@ -186,17 +186,6 @@ export const getBlockchainData = async (flightStatusResp, encryptionKey) => {
       marketedFlightSegment: marketedFlightSegment,
     };
 
-    // Log the extracted data for debugging
-    console.log(
-      "Extracted flight data keys:",
-      Object.keys(extractedFlightData)
-    );
-    console.log("Flight Number:", extractedFlightData.flightNumber);
-    console.log("Carrier Code:", extractedFlightData.carrierCode);
-    console.log("Current Status:", extractedFlightData.currentFlightStatus);
-    console.log("Departure Airport:", extractedFlightData.departureAirport);
-    console.log("Arrival Airport:", extractedFlightData.arrivalAirport);
-
     // Validate that we have the minimum required fields
     if (!extractedFlightData.flightNumber) {
       throw new Error("Flight number is required");
@@ -227,18 +216,6 @@ export const getBlockchainData = async (flightStatusResp, encryptionKey) => {
       console.error("Missing or invalid marketingAirlineCodes array");
     }
 
-    console.log("Blockchain data structure:", {
-      blockchainFlightData: Array.isArray(blockchainData.blockchainFlightData),
-      blockchainUtcTimes: Array.isArray(blockchainData.blockchainUtcTimes),
-      blockchainStatusData: Array.isArray(blockchainData.blockchainStatusData),
-      marketingAirlineCodes: Array.isArray(
-        blockchainData.marketingAirlineCodes
-      ),
-      marketingFlightNumbers: Array.isArray(
-        blockchainData.marketingFlightNumbers
-      ),
-    });
-
     return blockchainData;
   } catch (error) {
     console.error("Error preparing blockchain data:", error.message);
@@ -251,7 +228,7 @@ export const getBlockchainData = async (flightStatusResp, encryptionKey) => {
 };
 
 export const extractKeyFlightInfo = (flightData) => {
-  try {
+  try {    
     const flight = flightData.flightData.Flight;
     const operationalSegment =
       flightData.flightData.FlightLegs?.[0]?.OperationalFlightSegments?.[0];
@@ -273,8 +250,6 @@ export const extractKeyFlightInfo = (flightData) => {
     logger.info(
       `[EXTRACT FLIGHT INFO] Extracting key flight information... ${flight.FlightNumber} ${operationalSegment?.FlightStatuses?.[0]?.Description} }`
     );
-
-    console.log("Departure Terminal:", operationalSegment?.DepartureTerminal);
 
     // Helper function to determine if flight is canceled
     const isCanceled =

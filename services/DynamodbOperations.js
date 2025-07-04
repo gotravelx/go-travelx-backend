@@ -9,10 +9,9 @@ class DynamoDbOp extends DbOperations {
     this.dynamodb = new AWS.DynamoDB.DocumentClient();
   }
 
-  // Helper method to extract key attributes from an item
+  
   extractKey(item) {
     if (Array.isArray(this.primaryKey)) {
-      // Composite key
       const key = {};
       for (const keyAttr of this.primaryKey) {
         if (item[keyAttr] !== undefined) {
@@ -21,7 +20,6 @@ class DynamoDbOp extends DbOperations {
       }
       return key;
     } else {
-      // Single key
       return { [this.primaryKey]: item[this.primaryKey] };
     }
   }
@@ -60,21 +58,20 @@ class DynamoDbOp extends DbOperations {
     }
   }
 
-  // Add this to debug your table structure
-async findOne(filter) {  
-  const params = {
-    TableName: this.tableName,
-    Key: filter,
-  };
-  
-  try {
-    const result = await this.dynamodb.get(params).promise();
-    return result.Item || null;
-  } catch (error) {
-    console.error('DynamoDB error details:', error);
-    throw new Error(`DynamoDB FindOne Error: ${error.message}`);
+  async findOne(filter) {  
+    const params = {
+      TableName: this.tableName,
+      Key: filter,
+    };
+    
+    try {
+      const result = await this.dynamodb.get(params).promise();
+      return result.Item || null;
+    } catch (error) {
+      console.error('DynamoDB error details:', error);
+      throw new Error(`DynamoDB FindOne Error: ${error.message}`);
+    }
   }
-}
 
   async findMany(filter = {}, options = {}) {
     const params = {
@@ -154,6 +151,20 @@ async findOne(filter) {
       return result.Attributes;
     } catch (error) {
       throw new Error(`DynamoDB UpdateOne Error: ${error.message}`);
+    }
+  }
+
+  // New upsertItem method (create or update if exists)
+  async upsertItem(data) {
+    const params = {
+      TableName: this.tableName,
+      Item: data,
+    };
+    try {
+      await this.dynamodb.put(params).promise();
+      return data;
+    } catch (error) {
+      throw new Error(`DynamoDB Upsert Error: ${error.message}`);
     }
   }
 
@@ -240,6 +251,20 @@ async findOne(filter) {
   async deleteItem(item) {
     const key = this.extractKey(item);
     return this.deleteOne(key);
+  }
+
+  // Helper method to get item by composite key
+  async getItem(keyObject) {
+    const params = {
+      TableName: this.tableName,
+      Key: keyObject,
+    };
+    try {
+      const result = await this.dynamodb.get(params).promise();
+      return result.Item || null;
+    } catch (error) {
+      throw new Error(`DynamoDB GetItem Error: ${error.message}`);
+    }
   }
 }
 

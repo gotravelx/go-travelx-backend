@@ -37,7 +37,11 @@ export const fetchFlightData = async (flightNumber, options = {}) => {
       url += `&departure=${options.departure}`;
     }
 
-    logger.info(`[API] Fetching flight data from: ${url}`);
+    if (options.arrival) {
+      url += `&arrival=${options.arrival}`;
+    }
+
+    logger.info(`[API] Fetching flight data from: [United API]`);
 
     let token = await tokenRefresher.getToken();
 
@@ -136,6 +140,9 @@ export const fetchFlightDetails = async (req, res) => {
       departure,
       arrival,
     });
+
+    console.log('flightData:', flightData);
+    
 
     const keyFlightInfo = extractKeyFlightInfo(flightData);
 

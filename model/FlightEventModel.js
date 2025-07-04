@@ -1,6 +1,6 @@
 import DynamoDbOp from "../services/DynamodbOperations.js";
 
-const flightDb = new DynamoDbOp("FlightEvents", "flightNumber");
+export const flightDb = new DynamoDbOp("FlightEvents", "flightNumber");
 
 const TABLE_NAME = "FlightEvents";
 
@@ -10,12 +10,8 @@ const FlightEventModel = {
   TableName: TABLE_NAME,
   KeySchema: [
     { AttributeName: "flightNumber", KeyType: "HASH" }, // Partition key
-    { AttributeName: "departureDate", KeyType: "RANGE" }, // Sort key
   ],
-  AttributeDefinitions: [
-    { AttributeName: "flightNumber", AttributeType: "S" },
-    { AttributeName: "departureDate", AttributeType: "S" },
-  ],
+  AttributeDefinitions: [{ AttributeName: "flightNumber", AttributeType: "S" }],
   BillingMode: "PAY_PER_REQUEST",
 };
 
@@ -23,34 +19,24 @@ const FlightEventModel = {
 
 /* ======================== Inserts a flight event into the DynamoDB table. ======================== */
 
-const createTable = async (
-  
-) => {
-  try {
-  
-
-  } catch (error) {
-    console.error("[DYNAMODB] Error creating FlightEvents table", error);
-    return { success: false, error: error.message };
-  }
-};
-
-/* ======================== Inserts a flight event into the DynamoDB table. ======================== */
-
-
-
-/* ======================== Inserts a flight event into the DynamoDB table. ======================== */
-
 const insertFlightEvent = async (
   flightNumber,
+  carrierCode,
   departureDate,
+  departureAirport,
+  arrivalAirport,
+  flightStatus,
   blockchainHashKey,
   flightData
 ) => {
   try {
     const item = {
       flightNumber,
+      carrierCode,
       departureDate,
+      departureAirport,
+      arrivalAirport,
+      flightStatus,
       blockchainHashKey,
       flightData,
       createdAt: new Date().toISOString(),
@@ -78,75 +64,87 @@ const insertFlightEvent = async (
 
 /* ======================== Inserts a flight event into the DynamoDB table. ======================== */
 
-/* ============================== GET FLIGHT EVENT BY FLIGHT NUMBER AND DATE ==============================*/
+/* ======================== Update a Flight event into the DynamoDB table. Start  ======================== */
 
-const getFlightEventByNumber = async (flightNumber, departureDate) => {
+const updateFlightEvent = async (
+  flightNumber,
+  carrierCode,
+  departureDate,
+  departureAirport,
+  arrivalAirport,
+  flightStatus,
+  blockchainHashKey,
+  flightData
+) => {
   try {
-    const key = {
-      flightNumber,
+    const updateItem = {
+      carrierCode,
       departureDate,
+      departureAirport,
+      arrivalAirport,
+      flightStatus,
+      blockchainHashKey,
+      flightData,
+      updatedAt: new Date().toISOString(),
     };
 
-    const flightEvent = await flightDb.findOne(key);
+    // Use update method instead of findMany
+    const result = await flightDb.update({ flightNumber }, updateItem);
 
-    if (!flightEvent) {
-      console.log("[DYNAMODB] Flight event not found", {
-        flightNumber,
-        departureDate,
-      });
-      return null;
-    }
-
-    console.log("[DYNAMODB] Flight event retrieved successfully", {
+    console.log("[DYNAMODB] Flight event updated successfully", {
       flightNumber,
       departureDate,
+      blockchainHashKey,
     });
 
-    return flightEvent;
+    return { success: true, item: result };
   } catch (error) {
-    console.error("[DYNAMODB] Error retrieving flight event", {
+    console.error("[DYNAMODB] Error updating flight event", {
       flightNumber,
-      departureDate,
       error: error.message,
     });
 
-    throw new Error("Failed to retrieve flight event");
+    return { success: false, error: error.message };
   }
 };
 
-/* ============================== GET FLIGHT EVENT BY FLIGHT NUMBER AND DATE ==============================*/
+/* ============================== GET FLIGHT EVENT BY FLIGHT NUMBER ==============================*/
 
-/* ============================== GET FLIGHTS VIA DEPARTURE DATE ================================ */
-
-const getFlightsByDepartureDate = async (departureDate) => {
+const getFlightEventByNumber = async (flightNumber) => {
   try {
-    const flights = await flightDb.findMany({ departureDate });
-
     console.log(
-      "[DYNAMODB] Flights fetched for departureDate:",
-      departureDate,
-      {
-        count: flights.length,
-      }
+      `[DYNAMODB] Fetching flight event for flight number: ${flightNumber}`
     );
 
-    return flights;
-  } catch (error) {
-    console.error("[DYNAMODB] Error fetching flights by departure date", {
-      departureDate,
-      error: error.message,
-    });
+    const result = await flightDb.findOne({ flightNumber });
 
-    throw new Error("Failed to retrieve flights by departure date");
+    if (result) {
+      console.log(`[DYNAMODB] Flight event found for flight ${flightNumber}`);
+      return result;
+    } else {
+      console.log(
+        `[DYNAMODB] No flight event found for flight ${flightNumber}`
+      );
+      return null;
+    }
+  } catch (error) {
+    console.error(
+      `[DYNAMODB] Error fetching flight event for flight ${flightNumber}:`,
+      {
+        error: error.message,
+      }
+    );
+    throw error;
   }
 };
 
-/* ============================== GET FLIGHTS VIA DEPARTURE DATE ================================ */
+/* ============================== GET FLIGHT EVENT BY FLIGHT NUMBER ==============================*/
+
+/* ======================== Update a Flight event into the DynamoDB table. End  ======================== */
 
 export {
   FlightEventModel,
-  createTable,
   insertFlightEvent,
+  updateFlightEvent,
   getFlightEventByNumber,
-  getFlightsByDepartureDate,
 };

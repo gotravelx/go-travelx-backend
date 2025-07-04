@@ -1,32 +1,35 @@
 import crypto from "crypto";
 import dotenv from "dotenv";
 import customLogger from "../utils/Logger.js";
+
 // Function to encrypt a string
 dotenv.config();
+customLogger.info("Dotenv configured successfully");
 
 export const encryptString = (str, encryptionKey) => {
-  // Ensure we have a string
+  // customLogger.info("Starting encryptString function");
   const dataStr = String(str || "");
+  if (!dataStr) {
+    // customLogger.warn("Empty string provided, returning empty string without encryption");
+    return "";
+  }
 
-  // If empty string, don't encrypt
-  if (!dataStr) return "";
-
-  // Generate a random initialization vector
-  const iv = crypto.randomBytes(16);
-
-  // Create cipher using AES-256-CBC with the key and iv
-  const cipher = crypto.createCipheriv(
-    "aes-256-cbc",
-    Buffer.from(encryptionKey),
-    iv
-  );
-
-  // Encrypt the data
-  let encrypted = cipher.update(dataStr, "utf8", "base64");
-  encrypted += cipher.final("base64");
-
-  // Return the IV and encrypted data as a combined string
-  return iv.toString("hex") + ":" + encrypted;
+  try {
+    const iv = crypto.randomBytes(16);
+    const cipher = crypto.createCipheriv(
+      "aes-256-cbc",
+      Buffer.from(encryptionKey),
+      iv
+    );
+    // customLogger.info("Cipher created successfully");
+    let encrypted = cipher.update(dataStr, "utf8", "base64");
+    encrypted += cipher.final("base64");
+    const result = iv.toString("hex") + ":" + encrypted;
+    return result;
+  } catch (error) {
+    customLogger.error(`Encryption failed: ${error.message}`);
+    throw error;
+  }
 };
 
 export const selectiveEncrypt = (
@@ -34,30 +37,39 @@ export const selectiveEncrypt = (
   encryptionKey,
   skipIndices = []
 ) => {
+  if (!Array.isArray(dataArray)) {
+    customLogger.error("Invalid input: dataArray is not an array");
+    throw new Error("dataArray must be an array");
+  }
+
   return dataArray.map((item, index) => {
-    // Don't encrypt if the index is in the skipIndices array
     if (skipIndices.includes(index)) {
       return item;
     }
-    return encryptString(item, encryptionKey);
+    
+    const encrypted = encryptString(item, encryptionKey);
+    return encrypted;
   });
 };
 
 export const prepareFlightDataForBlockchain = (flightData, encryptionKey) => {
+  customLogger.info("Starting prepareFlightDataForBlockchain function");
 
-  console.log("prepareFlightDataForBlockchain --------------->",flightData);
-  
   // Validate required fields
   if (
     !flightData.flightNumber ||
     !flightData.carrierCode ||
     !flightData.scheduledDepartureDate
   ) {
+    customLogger.error("Missing required flight data fields");
+    customLogger.error(`Flight number: ${flightData.flightNumber}`);
+    customLogger.error(`Carrier code: ${flightData.carrierCode}`);
+    customLogger.error(`Scheduled departure date: ${flightData.scheduledDepartureDate}`);
     throw new Error("Missing required flight data fields");
   }
 
-  // Validate encryption key if provided
   if (encryptionKey && encryptionKey.length !== 32) {
+    customLogger.error(`Invalid encryption key length: ${encryptionKey.length}, expected 32`);
     throw new Error("Encryption key must be 32 bytes");
   }
 
@@ -72,37 +84,29 @@ export const prepareFlightDataForBlockchain = (flightData, encryptionKey) => {
   let onTimeUTC = flightData.onTimeUTC || "";
   let inTimeUTC = flightData.inTimeUTC || "";
 
+
   // Get current UTC time for any missing timestamps
   const currentUTCTime = new Date().toISOString();
 
-  // If we have previous status, check for transitions and update timestamps
   // ndpt -> out
   if (currentFlightStatus === "out") {
     outTimeUTC = flightData.outTimeUTC || currentUTCTime;
-    console.log(
-      `Flight ${flightData.flightNumber} OUT time recorded: ${outTimeUTC}`
-    );
+    customLogger.info(`Flight ${flightData.flightNumber} OUT time recorded: ${outTimeUTC}`);
   }
   // out -> off
   else if (currentFlightStatus === "off") {
     offTimeUTC = flightData.offTimeUTC || currentUTCTime;
-    console.log(
-      `Flight ${flightData.flightNumber} OFF time recorded: ${offTimeUTC}`
-    );
+    customLogger.info(`Flight ${flightData.flightNumber} OFF time recorded: ${offTimeUTC}`);
   }
   // off -> on
   else if (currentFlightStatus === "on") {
     onTimeUTC = flightData.onTimeUTC || currentUTCTime;
-    console.log(
-      `Flight ${flightData.flightNumber} ON time recorded: ${onTimeUTC}`
-    );
+    customLogger.info(`Flight ${flightData.flightNumber} ON time recorded: ${onTimeUTC}`);
   }
   // on -> in
   else if (currentFlightStatus === "in") {
     inTimeUTC = flightData.inTimeUTC || currentUTCTime;
-    console.log(
-      `Flight ${flightData.flightNumber} IN time recorded: ${inTimeUTC}`
-    );
+    customLogger.info(`Flight ${flightData.flightNumber} IN time recorded: ${inTimeUTC}`);
   }
 
   // Get status code based on current flight status
@@ -114,6 +118,7 @@ export const prepareFlightDataForBlockchain = (flightData, encryptionKey) => {
     else if (currentFlightStatus === "in") statusCode = "IN";
     else statusCode = "NDPT"; // Default to Not Departed
   }
+  customLogger.info(`Status code determined: ${statusCode}`);
 
   // Ensure flightStatus has a value
   const flightStatus =
@@ -129,10 +134,12 @@ export const prepareFlightDataForBlockchain = (flightData, encryptionKey) => {
       : currentFlightStatus.toUpperCase() === "IN"
       ? "Arrived"
       : "Scheduled");
+  customLogger.info(`Flight status description: ${flightStatus}`);
 
   // Determine currentFlightTime based on status
   let currentFlightTime =
     inTimeUTC || onTimeUTC || offTimeUTC || outTimeUTC || currentUTCTime;
+  customLogger.info(`Current flight time determined: ${currentFlightTime}`);
 
   const blockchainFlightData = [
     flightData.flightNumber, // index 0 - flight number (keep unencrypted)
@@ -175,6 +182,7 @@ export const prepareFlightDataForBlockchain = (flightData, encryptionKey) => {
 
   // Handle marketing segments - ensure at least one empty entry if empty
   const marketingSegments = flightData.marketedFlightSegment || [];
+  
   const marketingAirlineCodes = marketingSegments.map(
     (segment) => segment.MarketingAirlineCode || ""
   );
@@ -184,82 +192,156 @@ export const prepareFlightDataForBlockchain = (flightData, encryptionKey) => {
 
   // If encryption key is provided, encrypt selectively
   if (encryptionKey) {
+    customLogger.info("Starting selective encryption process");
     // Indices to keep unencrypted: flight number (0), departure date (1), carrier code (2), departure airport (6)
     const unencryptedFlightDataIndices = [0, 1, 2, 5, 6];
 
-    return {
-      blockchainFlightData: selectiveEncrypt(
+    try {
+      const encryptedFlightData = selectiveEncrypt(
         blockchainFlightData,
         encryptionKey,
         unencryptedFlightDataIndices
-      ),
-      blockchainUtcTimes: selectiveEncrypt(blockchainUtcTimes, encryptionKey),
-      blockchainStatusData: selectiveEncrypt(
+      );
+
+      const encryptedUtcTimes = selectiveEncrypt(blockchainUtcTimes, encryptionKey);
+
+      const encryptedStatusData = selectiveEncrypt(
         blockchainStatusData,
         encryptionKey
-      ),
-      marketingAirlineCodes: selectiveEncrypt(
+      );
+
+      const encryptedMarketingAirlineCodes = selectiveEncrypt(
         marketingAirlineCodes,
         encryptionKey,
         []
-      ),
-      marketingFlightNumbers: selectiveEncrypt(
+      );
+
+      const encryptedMarketingFlightNumbers = selectiveEncrypt(
         marketingFlightNumbers,
         encryptionKey,
         []
-      ),
-    };
+      );
+
+      const result = {
+        blockchainFlightData: encryptedFlightData,
+        blockchainUtcTimes: encryptedUtcTimes,
+        blockchainStatusData: encryptedStatusData,
+        marketingAirlineCodes: encryptedMarketingAirlineCodes,
+        marketingFlightNumbers: encryptedMarketingFlightNumbers,
+      };
+      customLogger.info("Encrypted result object created successfully");
+      return result;
+    } catch (error) {
+      customLogger.error(`Encryption process failed: ${error.message}`);
+      throw error;
+    }
   }
 
   // If no encryption key, return arrays as-is
-  return {
+  customLogger.info("No encryption key provided, returning unencrypted data");
+  const result = {
     blockchainFlightData,
     blockchainUtcTimes,
     blockchainStatusData,
     marketingAirlineCodes,
     marketingFlightNumbers,
   };
+  customLogger.info("Unencrypted result object created successfully");
+  return result;
 };
 
 export const decryptData = (encryptedData, encryptionKey) => {
-  if (Array.isArray(encryptedData)) {
-    return encryptedData.map((item) => decryptString(item, encryptionKey));
+  customLogger.info("Starting decryptData function");
+  customLogger.info(`Input is array: ${Array.isArray(encryptedData)}`);
+  
+  if (!encryptionKey) {
+    customLogger.error("No encryption key provided for decryption");
+    throw new Error("Encryption key is required for decryption");
   }
-  return decryptString(encryptedData, encryptionKey);
+
+  try {
+    if (Array.isArray(encryptedData)) {
+      const result = encryptedData.map((item, index) => {
+        customLogger.info(`Decrypting item at index ${index}`);
+        return decryptString(item, encryptionKey);
+      });
+      customLogger.info("Array decryption completed successfully");
+      return result;
+    }
+    
+    customLogger.info("Decrypting single string");
+    const result = decryptString(encryptedData, encryptionKey);
+    customLogger.info("Single string decryption completed successfully");
+    return result;
+  } catch (error) {
+    customLogger.error(`Decryption process failed: ${error.message}`);
+    throw error;
+  }
 };
 
-const decryptString = (encryptedStr, encryptionKey) => {
+export const decryptString = (encryptedStr, encryptionKey) => {
+  customLogger.info("Starting decryptString function",JSON.stringify({ encryptedStr }));
+  
   try {
-    if (!encryptedStr || !encryptedStr.includes(":")) return encryptedStr;
+    if (!encryptedStr || !encryptedStr.includes(":")) {
+      customLogger.warn("String doesn't appear to be encrypted, returning as-is");
+      return encryptedStr;
+    }
 
     const [ivHex, encryptedText] = encryptedStr.split(":");
+    
     const iv = Buffer.from(ivHex, "hex");
+    customLogger.info("IV buffer created successfully");
 
     const decipher = crypto.createDecipheriv(
       "aes-256-cbc",
       Buffer.from(encryptionKey),
       iv
     );
+    customLogger.info("Decipher created successfully");
+
     let decrypted = decipher.update(encryptedText, "base64", "utf8");
     decrypted += decipher.final("utf8");
-
     return decrypted;
   } catch (error) {
     customLogger.error(`Decryption failed: ${error.message}`);
+    customLogger.error(`Stack trace: ${error.stack}`);
+
     return encryptedStr;
   }
 };
 
 export const decryptFlightData = (req, res) => {
+  customLogger.info("Starting decryptFlightData endpoint");
+  customLogger.info(`Request method: ${req.method}`);
+  customLogger.info(`Request headers: ${JSON.stringify(req.headers)}`);
+  
   const { encryptedData } = req.body;
+  customLogger.info(`Encrypted data provided: ${!!encryptedData}`);
 
   if (!encryptedData) {
+    customLogger.error("Missing encryptedData in request body");
     return res.status(400).json({ error: "Missing encryptedData" });
   }
 
-  const result = decryptData(encryptedData, process.env.ENCRYPTION_KEY);
-  if (!result) {
+  if (!process.env.ENCRYPTION_KEY) {
+    customLogger.error("ENCRYPTION_KEY environment variable not set");
+    return res.status(500).json({ error: "Server configuration error" });
+  }
+  customLogger.info("Encryption key found in environment variables");
+
+  try {
+    const result = decryptData(encryptedData, process.env.ENCRYPTION_KEY);
+    if (!result) {
+      customLogger.error("Decryption returned null or undefined result");
+      return res.status(500).json({ error: "Decryption failed" });
+    }
+    
+    customLogger.info("Decryption successful, sending response");
+    res.json({ decryptedData: result });
+  } catch (error) {
+    customLogger.error(`Decryption endpoint failed: ${error.message}`);
+    customLogger.error(`Stack trace: ${error.stack}`);
     return res.status(500).json({ error: "Decryption failed" });
   }
-  res.json({ decryptedData: result });
 };
