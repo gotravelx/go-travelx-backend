@@ -38,6 +38,8 @@ class DynamoDBConnection {
       logger.info("DynamoDB connected successfully");
       logger.info(`Region: ${AWS.config.region}`);
 
+      
+
       return {
         documentClient: this.documentClient,
         dynamoClient: this.dynamoClient,

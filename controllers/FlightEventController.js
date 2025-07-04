@@ -4,12 +4,13 @@ import { FlightEventModel } from "../model/FlightEventModel.js";
 import { subscribeDb } from "../model/FlightSubscriptionModel.js";
 import blockchainService from "../utils/FlightBlockchainService.js";
 import customLogger from "../utils/Logger.js";
+import { startFlightStatusMonitoring } from "./CronJobController.js";
 
 const walletAddress = process.env.WALLET_ADDRESS;
 
-
-
 /* ========================= CREATE TABLE START ========================*/
+
+let monitoringJobs = null;
 
 export const createFlightEventTable = async () => {
   const dynamoClient = getDynamoClient();
@@ -192,7 +193,6 @@ export const getAllFlightDetails = async (req, res) => {
       message: "Subscribed flights retrieved successfully",
       flights: subscriptionsData,
     });
-    
   } catch (error) {
     customLogger.error("Error fetching subscribed flights:", error);
     return res.status(500).json({
@@ -203,3 +203,4 @@ export const getAllFlightDetails = async (req, res) => {
   }
 };
 
+startFlightStatusMonitoring();
