@@ -1,0 +1,468 @@
+{
+  "info": [
+    {
+      "msg": "Flight status api response received successfully",
+      "cd": "200"
+    }
+  ],
+  "respTime": 253,
+  "flightStatusResp": {
+    "Flight": {
+      "FlightNumber": "5300",
+      "FlightOriginationDate": "2025-06-12",
+      "Characteristics": [
+        {
+          "Code": "CustomerStatusInMs",
+          "Value": "67"
+        }
+      ]
+    },
+    "FlightLegs": [
+      {
+        "OperationalFlightSegments": [
+          {
+            "EstimatedArrivalTime": "2025-06-12T23:58:00",
+            "EstimatedDepartureTime": "2025-06-12T22:38:00",
+            "PlannedEnrouteTime": "PT50M",
+            "PlannedTaxiOut": "PT23M",
+            "PlannedTaxiIn": "PT4M",
+            "DepartureGate": "F5",
+            "DepartureBagSector": "0",
+            "FlightType": "PS",
+            "DepartureFuelWeight": "NaN",
+            "ClearedFuelWeight": "NaN",
+            "DepartureTerminal": "Terminal 3, Concourse F",
+            "EstimatedArrivalUTCTime": "2025-06-13T06:58:00",
+            "EstimatedDepartureUTCTime": "2025-06-13T05:38:00",
+            "RemainingMinutesToBoard": 2248,
+            "ReasonStatuses": [],
+            "EstimatedDepartureDelayMinutes": "0",
+            "EstimatedArrivalDelayMinutes": "0",
+            "QuickTurnIndicator": "0",
+            "SpclTerminalMsgsDetails": [],
+            "DepGatePoIId": "613",
+            "DepartureAirport": {
+              "IATACode": "SFO",
+              "ICAOCode": "KSFO",
+              "Name": "San Francisco, CA, US (SFO - All Airports)",
+              "ShortName": "SAN FRANCISCO INTL",
+              "Address": {
+                "City": "SAN FRANCISCO",
+                "StateProvince": {
+                  "Name": "CA"
+                }
+              },
+              "IATACountryCode": {
+                "CountryCode": "USA"
+              },
+              "StateProvince": {
+                "StateProvinceCode": "CA"
+              }
+            },
+            "ArrivalAirport": {
+              "IATACode": "SBA",
+              "ICAOCode": "KSBA",
+              "Name": "Santa Barbara, CA, US (SBA)",
+              "ShortName": "SANTA BARBARA MUN",
+              "Address": {
+                "City": "SANTA BARBARA",
+                "StateProvince": {
+                  "Name": "CA"
+                }
+              },
+              "IATACountryCode": {
+                "CountryCode": "USA"
+              },
+              "StateProvince": {
+                "StateProvinceCode": "CA"
+              }
+            },
+            "DepartureDateTime": "2025-06-12T22:38:00",
+            "ArrivalDateTime": "2025-06-12T23:58:00",
+            "FlightNumber": "5300",
+            "Equipment": {
+              "Model": {
+                "Genre": "E7Q",
+                "Description": "Embraer E-175",
+                "VendorName": "E ",
+                "Key": "E7Q",
+                "Fleet": "E7W",
+                "StndrdFleetDesc": "ERJ-175"
+              },
+              "ShipNumber": "ERJ-175",
+              "TailNumber": "N85363",
+              "Cabins": [
+                {
+                  "Name": "J",
+                  "TotalSeats": 12
+                },
+                {
+                  "Name": "Y",
+                  "TotalSeats": 58
+                },
+                {
+                  "Name": "TotalCabinCapacity",
+                  "TotalSeats": 70
+                }
+              ],
+              "OwnerAirlineCode": "UAX",
+              "CabinCount": 2,
+              "SeatMapConfigurationCode": "7",
+              "PseudoTailNumber": "1363",
+              "Links": [],
+              "OversizedBin": "false",
+              "UaxSpacebinsInd": "false",
+              "Amenities": {
+                "WifiPrvdr": "Intelsat",
+                "PdeInd": "1",
+                "ScrnTypeJF": "none",
+                "ScrnTypeY": "none",
+                "BltJFInd": "0",
+                "BltOInd": "0",
+                "BltYInd": "0",
+                "PwrPlgJFInd": "1",
+                "PwrPlgOInd": "0",
+                "PwrPlgYPInd": "1",
+                "PwrPlgYInd": "1",
+                "UsbPwrJFInd": "0",
+                "UsbPwrOInd": "0",
+                "UsbPwrYInd": "0",
+                "WrlsChrgJFInd": "0",
+                "WrlsChrgOInd": "0",
+                "WrlsChrgYInd": "0",
+                "BinType": "small",
+                "EngCnt": "2",
+                "EngType": "General Electric CF34-8E",
+                "SpdMach": "Mach .750",
+                "SpdMph": "495 mph",
+                "SpdKmh": "430 kn",
+                "ThrstImperial": "14,200 lbf",
+                "WngspnImperial": "94 ft 0 in",
+                "WngspnMetric": "28.6 m"
+              }
+            },
+            "ArrivalUTCDateTime": "2025-06-13T06:58:00",
+            "DepartureUTCDateTime": "2025-06-13T05:38:00",
+            "Characteristic": [
+              {
+                "Code": "DisplayInd",
+                "Value": "1"
+              },
+              {
+                "Code": "ActvInd",
+                "Value": "1"
+              },
+              {
+                "Code": "FltOutInd",
+                "Value": "0"
+              },
+              {
+                "Code": "FltOffInd",
+                "Value": "0"
+              },
+              {
+                "Code": "FltOnInd",
+                "Value": "0"
+              },
+              {
+                "Code": "FltInInd",
+                "Value": "0"
+              },
+              {
+                "Code": "FltCnclInd",
+                "Value": "0"
+              },
+              {
+                "Code": "FltDcsnInd",
+                "Value": "0"
+              },
+              {
+                "Code": "FltDepXstpInd",
+                "Value": "0"
+              },
+              {
+                "Code": "FltArrXstpInd",
+                "Value": "0"
+              },
+              {
+                "Code": "FltDepDvrtInd",
+                "Value": "0"
+              },
+              {
+                "Code": "FltArrDvrtInd",
+                "Value": "0"
+              },
+              {
+                "Code": "FltArrRTBLInd",
+                "Value": "0"
+              },
+              {
+                "Code": "FltDepRTBLInd",
+                "Value": "0"
+              },
+              {
+                "Code": "FltArrRTFLInd",
+                "Value": "0"
+              },
+              {
+                "Code": "FltDepRTFLInd",
+                "Value": "0"
+              },
+              {
+                "Code": "FltDepNstpInd",
+                "Value": "0"
+              },
+              {
+                "Code": "FltArrNstpInd",
+                "Value": "0"
+              },
+              {
+                "Code": "FltOverflyInd",
+                "Value": "0"
+              },
+              {
+                "Code": "FltIrropsCnclInd",
+                "Value": "0"
+              },
+              {
+                "Code": "DestOccurNbr",
+                "Value": "0"
+              },
+              {
+                "Code": "OrigOccurNbr",
+                "Value": "0"
+              },
+              {
+                "Code": "StarInd",
+                "Value": "0"
+              },
+              {
+                "Code": "PriorityFltInd",
+                "Value": "0"
+              },
+              {
+                "Code": "AtwDiffInd",
+                "Value": "L"
+              },
+              {
+                "Code": "BtwDiffInd",
+                "Value": "M"
+              },
+              {
+                "Code": "BtwDiffDrivers",
+                "Value": "Gate bags"
+              },
+              {
+                "Code": "DepZone",
+                "Value": "2"
+              },
+              {
+                "Code": "EquipmentModelCode",
+                "Value": "XED"
+              },
+              {
+                "Code": "FltMishapInd",
+                "Value": "0"
+              },
+              {
+                "Code": "DomesticInternationalIndicator",
+                "Value": "DD"
+              },
+              {
+                "Code": "LocalEstimatedBoardStartDateTime",
+                "Value": "2025-06-12T22:13:00"
+              },
+              {
+                "Code": "LocalEstimatedBoardEndDateTime",
+                "Value": "2025-06-12T22:23:00"
+              },
+              {
+                "Code": "GmtEstimatedBoardStartDateTime",
+                "Value": "2025-06-13T05:13:00"
+              },
+              {
+                "Code": "GmtEstimatedBoardEndDateTime",
+                "Value": "2025-06-13T05:23:00"
+              },
+              {
+                "Code": "LocalScheduledBoardStartDateTime",
+                "Value": "2025-06-12T22:13:00"
+              },
+              {
+                "Code": "LocalScheduledBoardEndDateTime",
+                "Value": "2025-06-12T22:23:00"
+              },
+              {
+                "Code": "FlightTypeDescription",
+                "Value": "UA Scheduled Passenger Flying"
+              }
+            ],
+            "IsInternational": "False",
+            "OperatingAirline": {
+              "IATACode": "OO",
+              "Name": "SkyWest dba United Express",
+              "WebSite": "http://www.skywest.com",
+              "Telephone": [
+                {
+                  "PhoneNumber": "800.453.9417"
+                }
+              ]
+            },
+            "BoardTime": "22:13:00",
+            "FlightStatuses": [
+              {
+                "StatusType": "DepartureStatus",
+                "Description": "On Time",
+                "Code": "OT"
+              },
+              {
+                "StatusType": "ArrivalStatus",
+                "Description": "On Time",
+                "Code": "OT"
+              },
+              {
+                "StatusType": "LegStatus",
+                "Description": "Not Departed",
+                "Code": "NDPT"
+              },
+              {
+                "StatusType": "FlightStatus",
+                "Description": "On Schedule",
+                "Code": "OnSchedule"
+              },
+              {
+                "StatusType": "ShortFlightStatus",
+                "Description": "On Schedule",
+                "Code": "OnSchedule"
+              }
+            ]
+          }
+        ],
+        "ScheduledFlightSegments": [
+          {
+            "DepartureAirport": {
+              "IATACode": "SFO",
+              "ICAOCode": "KSFO"
+            },
+            "ArrivalAirport": {
+              "IATACode": "SBA",
+              "ICAOCode": "KSBA"
+            },
+            "DepartureDateTime": "2025-06-12T22:38:00",
+            "ArrivalDateTime": "2025-06-12T23:58:00",
+            "FlightNumber": "5300",
+            "OperatingAirlineCode": "OO",
+            "Equipment": {
+              "Model": {
+                "Genre": "E7Q",
+                "Description": "Embraer ERJ175LL",
+                "VendorName": "E ",
+                "Key": "E7Q",
+                "Fleet": "E7W",
+                "StndrdFleetDesc": "ERJ-175"
+              },
+              "ShipNumber": "Embraer ERJ175LL",
+              "OwnerAirlineCode": "OO",
+              "SeatMapConfigurationCode": "7"
+            },
+            "MarketedFlightSegment": [
+              {
+                "MarketingAirlineCode": "AC",
+                "FlightNumber": "4366"
+              },
+              {
+                "MarketingAirlineCode": "LH",
+                "FlightNumber": "8888"
+              },
+              {
+                "MarketingAirlineCode": "NZ",
+                "FlightNumber": "9619"
+              }
+            ],
+            "SegmentNumber": 1,
+            "ArrivalUTCDateTime": "2025-06-13T06:58:00",
+            "DepartureUTCDateTime": "2025-06-13T05:38:00",
+            "Characteristic": [
+              {
+                "Code": "CacheResponseTime",
+                "Value": "59"
+              },
+              {
+                "Code": "CacheTransformationExecutionTime",
+                "Value": "0"
+              },
+              {
+                "Code": "FltRangeCarrierExecutionTime",
+                "Value": "0"
+              },
+              {
+                "Code": "OAUAProviderExecutionTime",
+                "Value": "0"
+              },
+              {
+                "Code": "AirportProviderExecutionTime",
+                "Value": "0"
+              },
+              {
+                "Code": "DeriveOaStatusExecutionTime",
+                "Value": "0"
+              },
+              {
+                "Code": "TranslateFlightStatusExecutionTime",
+                "Value": "0"
+              },
+              {
+                "Code": "ApplyOverrideMessageExecutionTime",
+                "Value": "2"
+              },
+              {
+                "Code": "CustDelayReasonExecutionTime",
+                "Value": "0"
+              },
+              {
+                "Code": "ShipExecutionTime",
+                "Value": "0"
+              },
+              {
+                "Code": "CarrierDetailsExecutionTime",
+                "Value": "0"
+              },
+              {
+                "Code": "BagPolicyExecutionTime",
+                "Value": "0"
+              },
+              {
+                "Code": "RecentSearchExecutionTime",
+                "Value": "0"
+              },
+              {
+                "Code": "MarketFlightExecutionTime",
+                "Value": "0"
+              },
+              {
+                "Code": "CodeShareFlightRangeExecutionTime",
+                "Value": "0"
+              },
+              {
+                "Code": "OAUACacheExceutionTime",
+                "Value": "0"
+              },
+              {
+                "Code": "RemainingFlightExecutionTime",
+                "Value": "0"
+              }
+            ],
+            "ScheduledFlightDuration": "PT53M",
+            "OperatingAirline": {
+              "IATACode": "OO"
+            }
+          }
+        ]
+      }
+    ],
+    "DataSource": "uflifo_cache"
+  },
+  "flightStatusReq": {
+    "fltNbr": "5300"
+  }
+}
