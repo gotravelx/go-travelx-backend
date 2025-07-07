@@ -1,4 +1,8 @@
+import DynamoDbOp from "../services/DynamodbOperations.js";
+
 const TABLE_NAME = "AirportCodes";
+
+export const airPortCodeDb = new DynamoDbOp("AirportCodes", "airPortCode");
 
 const AirportCodesModel = {
   airPortCode: {

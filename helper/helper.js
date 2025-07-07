@@ -1,6 +1,7 @@
 import logger from "../utils/Logger.js";
 import { prepareFlightDataForBlockchain } from "../controllers/EncryptController.js";
 import DynamoDbOp from "../services/DynamodbOperations.js";
+import customLogger from "../utils/Logger.js";
 const flightSubscription = new DynamoDbOp("FlightSubscriptions", [
   "walletAddress",
   "flightNumber",
@@ -35,15 +36,13 @@ export const getBlockchainData = async (flightStatusResp, encryptionKey) => {
   try {
     let flightData;
 
+    customLogger.info(`BlockChain Data Encryption ${JSON.stringify(flightData)}`)
+
     if (flightStatusResp?.success && flightStatusResp?.flightData) {
       flightData = flightStatusResp.flightData;
-    }
-
-    else if (flightStatusResp?.flightStatusResp) {
+    } else if (flightStatusResp?.flightStatusResp) {
       flightData = flightStatusResp.flightStatusResp;
-    }
-
-    else if (flightStatusResp?.Flight) {
+    } else if (flightStatusResp?.Flight) {
       flightData = flightStatusResp;
     } else {
       throw new Error("Unable to locate flight data in response structure");
@@ -65,7 +64,6 @@ export const getBlockchainData = async (flightStatusResp, encryptionKey) => {
         "Invalid flight status response structure - missing Flight or OperationalSegment data"
       );
     }
-
 
     // Extract flight statuses
     const flightStatuses = operationalSegment.FlightStatuses || [];
@@ -113,7 +111,8 @@ export const getBlockchainData = async (flightStatusResp, encryptionKey) => {
         operationalSegment.OperatingAirline?.IATACode ||
         scheduledSegment?.OperatingAirlineCode ||
         "",
-      scheduledDepartureDate: flight.FlightOriginationDate || flight.DepartureDate || "",
+      scheduledDepartureDate:
+        flight.FlightOriginationDate || flight.DepartureDate || "",
 
       // Basic flight information
       arrivalCity: operationalSegment.ArrivalAirport?.Address?.City || "",
@@ -155,11 +154,17 @@ export const getBlockchainData = async (flightStatusResp, encryptionKey) => {
         scheduledSegment?.DepartureUTCDateTime ||
         "",
 
-      // Status transition timestamps (these may not be available in this response format)
-      outTimeUTC: "", // Would need to be tracked separately
-      offTimeUTC: "", // Would need to be tracked separately
-      onTimeUTC: "", // Would need to be tracked separately
-      inTimeUTC: "", // Would need to be tracked separately
+      // FIXED: Status transition timestamps (OUT/OFF/ON/IN times)
+      outTimeUTC: operationalSegment.OutUTCTime || "", // When aircraft pushes back from gate
+      offTimeUTC: operationalSegment.OffUTCTime || "", // When aircraft takes off
+      onTimeUTC: operationalSegment.OnUTCTime || "", // When aircraft lands
+      inTimeUTC: operationalSegment.InUTCTime || "", // When aircraft arrives at gate (if available)
+
+      // ADDITIONAL: Local time versions for reference
+      outTimeLocal: operationalSegment.OutTime || "",
+      offTimeLocal: operationalSegment.OffTime || "",
+      onTimeLocal: operationalSegment.OnTime || "",
+      inTimeLocal: operationalSegment.InTime || "",
 
       // Delay information
       arrivalDelayMinutes: parseInt(
@@ -170,20 +175,28 @@ export const getBlockchainData = async (flightStatusResp, encryptionKey) => {
       ),
 
       // Location states
-      arrivalState:
-        operationalSegment.ArrivalAirport?.StateProvince?.StateProvinceCode ||
-        operationalSegment.ArrivalAirport?.Address?.StateProvince?.Name ||
-        "",
-      departureState:
-        operationalSegment.DepartureAirport?.StateProvince?.StateProvinceCode ||
-        operationalSegment.DepartureAirport?.Address?.StateProvince?.Name ||
-        "",
+      arrivalState: arrivalStatus.Code || "",
+      departureState: departureStatus.Code || "",
 
       // Baggage information
-      bagClaim: operationalSegment.BagClaim || "",
+      bagClaim:
+        operationalSegment.ArrivalBagClaimUnit ||
+        operationalSegment.BagClaim ||
+        "",
 
       // Marketing segments (codeshare flights)
       marketedFlightSegment: marketedFlightSegment,
+
+      // ADDITIONAL: Aircraft tail number and other details
+      tailNumber: operationalSegment.Equipment?.TailNumber || "",
+      aircraftType: operationalSegment.Equipment?.Model?.Genre || "",
+
+      // ADDITIONAL: Terminal information
+      departureTerminal: operationalSegment.DepartureTerminal || "",
+      arrivalTerminal: operationalSegment.ArrivalTermimal || "", // Note: API has typo "Termimal"
+
+      // ADDITIONAL: Board time information
+      boardTime: operationalSegment.BoardTime || "",
     };
 
     // Validate that we have the minimum required fields
@@ -228,7 +241,7 @@ export const getBlockchainData = async (flightStatusResp, encryptionKey) => {
 };
 
 export const extractKeyFlightInfo = (flightData) => {
-  try {    
+  try {
     const flight = flightData.flightData.Flight;
     const operationalSegment =
       flightData.flightData.FlightLegs?.[0]?.OperationalFlightSegments?.[0];

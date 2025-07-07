@@ -98,12 +98,6 @@ export const clearFlightSubscriptionTableData = async (req, res) => {
 
 /* ====================== Add Flight Subscription Api =============================== */
 
-/* ====================== Add Flight Subscription Api =============================== */
-
-/* ====================== Add Flight Subscription Api =============================== */
-
-/* ====================== Add Flight Subscription Api =============================== */
-
 export const addFlightSubscription = async (req, res) => {
   try {
     const {
@@ -120,7 +114,7 @@ export const addFlightSubscription = async (req, res) => {
       !departureDate ||
       !departureAirport ||
       !arrivalAirport ||
-      !carrierCode 
+      !carrierCode
     ) {
       return res.status(400).json({
         success: false,
@@ -131,7 +125,6 @@ export const addFlightSubscription = async (req, res) => {
           "departureAirport",
           "arrivalAirport",
           "carrierCode",
-          
         ],
       });
     }
@@ -176,27 +169,6 @@ export const addFlightSubscription = async (req, res) => {
           `[SUBSCRIPTION] User already subscribed to flight ${flightNumber} (Blockchain)`
         );
 
-        // Update database to reflect blockchain state
-        try {
-          await insertFlightSubscription({
-            walletAddress,
-            flightNumber,
-            carrierCode,
-            departureDate,
-            departureAirport,
-            arrivalAirport,
-            blockchainTxHash: "existing",
-            isSubscriptionActive: true,
-            subscriptionDate: new Date().toISOString(),
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-          });
-        } catch (dbError) {
-          customLogger.warn(
-            `[SUBSCRIPTION] Failed to sync blockchain subscription to database: ${dbError.message}`
-          );
-        }
-
         return res.status(200).json({
           success: true,
           flightNumber,
@@ -221,7 +193,7 @@ export const addFlightSubscription = async (req, res) => {
       departure: departureAirport,
     });
 
-    if (!flightDataResponse.success) {
+    if (!flightDataResponse?.success) {
       customLogger.error(
         `[SUBSCRIPTION] Failed to fetch flight data: ${flightDataResponse.errorMessage}`
       );
@@ -247,7 +219,10 @@ export const addFlightSubscription = async (req, res) => {
 
     try {
       // Check if flight event already exists
-      const existingFlightEvent = await getFlightEventByNumber(flightNumber);
+      const existingFlightEvent = await getFlightEventByNumber(
+        flightNumber,
+        departureDate
+      );
 
       if (!existingFlightEvent) {
         customLogger.info(
@@ -269,7 +244,7 @@ export const addFlightSubscription = async (req, res) => {
             encryptionKey
           );
 
-          if (preparedData.success === false) {
+          if (preparedData.success == false) {
             customLogger.error(
               `[SUBSCRIPTION] Failed to prepare blockchain data: ${preparedData.error}`
             );
@@ -484,8 +459,11 @@ export const addFlightSubscription = async (req, res) => {
     });
   } catch (error) {
     customLogger.error(
-      `[SUBSCRIPTION] Unexpected error in subscription process: ${error.message}`
+      `[SUBSCRIPTION] Unexpected error in subscription process: ${error}`
     );
+
+    console.log(`[SUBSCRIPTION]`, error);
+
     return res.status(500).json({
       success: false,
       error: "Internal server error",
@@ -577,3 +555,270 @@ export const getSubscribedFlights = async (req, res) => {
   }
 };
 /* ====================== Get Subscribed Flight's End =========================*/
+
+/* ============  Unsubscribe flight via wallet address and flight Number */
+
+/* ============  Unsubscribe flight via wallet address and flight Number */
+
+/* ============  Unsubscribe flight via wallet address and flight Number */
+
+export const unsubscribeFlight = async (req, res) => {
+  try {
+    const { flightNumbers, departureAirports } = req.body;
+
+    // Validate required parameters
+    if (!flightNumbers || !departureAirports) {
+      return res.status(400).json({
+        success: false,
+        error: "Missing required parameters",
+        required: ["flightNumbers", "departureAirports"],
+      });
+    }
+
+    // Validate arrays
+    if (!Array.isArray(flightNumbers) || !Array.isArray(departureAirports)) {
+      return res.status(400).json({
+        success: false,
+        error: "Parameters must be arrays",
+        required: ["flightNumbers", "departureAirports"],
+      });
+    }
+
+    // Validate array lengths match
+    if (flightNumbers.length !== departureAirports.length) {
+      return res.status(400).json({
+        success: false,
+        error: "Array lengths must match",
+        details: {
+          flightNumbersLength: flightNumbers.length,
+          departureAirportsLength: departureAirports.length,
+        },
+      });
+    }
+
+    // Validate arrays are not empty
+    if (flightNumbers.length === 0) {
+      return res.status(400).json({
+        success: false,
+        error: "At least one flight must be provided for unsubscription",
+      });
+    }
+
+    customLogger.info(
+      `[UNSUBSCRIBE] Starting unsubscription process for ${flightNumbers.length} flights`
+    );
+
+    // Step 1: Check existing subscriptions in database
+    const existingSubscriptions = [];
+    const notFoundSubscriptions = [];
+
+    for (let i = 0; i < flightNumbers.length; i++) {
+      const flightNumber = flightNumbers[i];
+
+      try {
+        const subscription = await subscribeDb.findOne({
+          walletAddress,
+          flightNumber,
+        });
+
+        if (subscription && subscription.isSubscriptionActive) {
+          existingSubscriptions.push({
+            flightNumber,
+            departureAirport: departureAirports[i],
+            subscription,
+          });
+        } else {
+          notFoundSubscriptions.push({
+            flightNumber,
+            departureAirport: departureAirports[i],
+            reason: subscription
+              ? "subscription inactive"
+              : "subscription not found",
+          });
+        }
+      } catch (error) {
+        customLogger.warn(
+          `[UNSUBSCRIBE] Error checking subscription for flight ${flightNumber}: ${error.message}`
+        );
+        notFoundSubscriptions.push({
+          flightNumber,
+          departureAirport: departureAirports[i],
+          reason: "database error",
+        });
+      }
+    }
+
+    // If no active subscriptions found
+    if (existingSubscriptions.length === 0) {
+      customLogger.info(
+        `[UNSUBSCRIBE] No active subscriptions found for provided flights`
+      );
+      return res.status(200).json({
+        success: true,
+        message: "No active subscriptions found for the provided flights",
+        unsubscribedCount: 0,
+        notFoundSubscriptions,
+        details: {
+          totalRequested: flightNumbers.length,
+          activeSubscriptions: 0,
+        },
+      });
+    }
+
+    // Step 2: Remove subscriptions from blockchain
+    let blockchainUnsubscription = null;
+    const subscriptionsToRemove = existingSubscriptions.map((sub) => ({
+      flightNumber: sub.flightNumber,
+      carrierCode: sub.subscription.carrierCode, // Get carrier code from existing subscription
+      departureAirport: sub.departureAirport,
+    }));
+
+    try {
+      customLogger.info(
+        `[UNSUBSCRIBE] Removing ${existingSubscriptions.length} subscriptions from blockchain`
+      );
+
+      blockchainUnsubscription =
+        await blockchainService.removeFlightSubscriptions(
+          subscriptionsToRemove.map((s) => s.flightNumber),
+          subscriptionsToRemove.map((s) => s.carrierCode),
+          subscriptionsToRemove.map((s) => s.departureAirport)
+        );
+
+      customLogger.info(
+        `[UNSUBSCRIBE] Successfully removed subscriptions from blockchain. TxHash: ${blockchainUnsubscription.transactionHash}`
+      );
+    } catch (blockchainError) {
+      const errorMessage =
+        blockchainError?.error?.message || blockchainError?.message || "";
+
+      customLogger.error(
+        `[UNSUBSCRIBE] Blockchain unsubscription error: ${errorMessage}`
+      );
+
+      // Handle specific blockchain errors
+      if (errorMessage.includes("UNPREDICTABLE_GAS_LIMIT")) {
+        if (errorMessage.includes("not subscribed")) {
+          customLogger.warn(
+            `[UNSUBSCRIBE] Some flights not subscribed on blockchain, proceeding with database cleanup`
+          );
+          // Continue to database cleanup even if blockchain says not subscribed
+        } else {
+          return res.status(500).json({
+            success: false,
+            error: "Blockchain unsubscription failed",
+            details: errorMessage,
+          });
+        }
+      } else {
+        return res.status(500).json({
+          success: false,
+          error: "Blockchain unsubscription failed",
+          details: errorMessage,
+        });
+      }
+    }
+
+    // Step 3: Update database subscriptions (mark as inactive)
+    const dbUpdateResults = [];
+    const dbUpdateErrors = [];
+
+    for (const subscription of existingSubscriptions) {
+      try {
+        await subscribeDb.updateOne(
+          {
+            walletAddress,
+            flightNumber: subscription.flightNumber,
+          },
+          {
+            isSubscriptionActive: false,
+            unsubscriptionDate: new Date().toISOString(),
+            blockchainUnsubscriptionTxHash:
+              blockchainUnsubscription?.transactionHash || null,
+            blockchainTxHash:
+              blockchainUnsubscription?.transactionHash ||
+              subscription.subscription.blockchainTxHash, // Keep original subscription hash
+            updatedAt: new Date().toISOString(),
+          }
+        );
+
+        dbUpdateResults.push({
+          flightNumber: subscription.flightNumber,
+          status: "updated",
+        });
+
+        customLogger.info(
+          `[UNSUBSCRIBE] Updated database subscription for flight ${subscription.flightNumber}`
+        );
+      } catch (dbError) {
+        customLogger.error(
+          `[UNSUBSCRIBE] Error updating database subscription for flight ${subscription.flightNumber}: ${dbError.message}`
+        );
+
+        dbUpdateErrors.push({
+          flightNumber: subscription.flightNumber,
+          error: dbError.message,
+        });
+      }
+    }
+
+    // Step 4: Prepare response
+    const successfulUnsubscriptions = dbUpdateResults.length;
+    const hasErrors = dbUpdateErrors.length > 0;
+
+    if (successfulUnsubscriptions === 0) {
+      return res.status(500).json({
+        success: false,
+        error: "Failed to update any subscriptions in database",
+        details: {
+          blockchainTxHash: blockchainUnsubscription?.transactionHash,
+          dbUpdateErrors,
+        },
+      });
+    }
+
+    // Step 5: Return success response
+    const response = {
+      success: true,
+      message: `Successfully unsubscribed from ${successfulUnsubscriptions} flight(s)`,
+      unsubscribedCount: successfulUnsubscriptions,
+      blockchainTxHash: blockchainUnsubscription?.transactionHash,
+      blockNumber: blockchainUnsubscription?.blockNumber,
+      details: {
+        totalRequested: flightNumbers.length,
+        activeSubscriptions: existingSubscriptions.length,
+        successfulUnsubscriptions,
+        dbUpdateResults,
+      },
+    };
+
+    // Add warnings if there were any issues
+    if (notFoundSubscriptions.length > 0) {
+      response.warnings = {
+        notFoundSubscriptions,
+      };
+    }
+
+    if (hasErrors) {
+      response.warnings = {
+        ...response.warnings,
+        dbUpdateErrors,
+      };
+    }
+
+    customLogger.info(
+      `[UNSUBSCRIBE] Unsubscription process completed successfully for ${successfulUnsubscriptions} flights`
+    );
+
+    return res.status(200).json(response);
+  } catch (error) {
+    customLogger.error(
+      `[UNSUBSCRIBE] Unexpected error in unsubscription process: ${error.message}`
+    );
+    return res.status(500).json({
+      success: false,
+      error: "Internal server error",
+      details: error.message,
+    });
+  }
+};

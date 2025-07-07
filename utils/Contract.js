@@ -70,7 +70,7 @@ export class FlightBlockchainService {
 
     try {
       console.log("flightData:", flightData);
-      
+
       const sanitizedFlightData = flightData.map((item) =>
         item !== null && item !== undefined ? String(item) : ""
       );
@@ -124,6 +124,8 @@ export class FlightBlockchainService {
       };
     } catch (error) {
       customLogger.error("Error inserting flight details:", error.message);
+      console.log(error);
+
       throw error;
     }
   }

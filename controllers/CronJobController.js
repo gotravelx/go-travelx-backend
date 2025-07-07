@@ -1,61 +1,39 @@
 import scheduleJob from "node-schedule";
 import DynamoDbOp from "../services/DynamodbOperations.js";
 import { extractKeyFlightInfo, getBlockchainData } from "../helper/helper.js";
-import {
-  decryptFlightData,
-  decryptString,
-  prepareFlightDataForBlockchain,
-} from "./EncryptController.js";
 import blockchainService from "../utils/FlightBlockchainService.js";
 import customLogger from "../utils/Logger.js";
 import { fetchFlightData } from "./UnitedApiController.js";
+import { updateFlightEvent } from "../model/FlightEventModel.js";
 
 // Initialize DynamoDB operations
 const flightEventDb = new DynamoDbOp("FlightEvents", "flightNumber");
-const flightSubscriptionDb = new DynamoDbOp("FlightSubscriptions", [
-  "walletAddress",
-  "flightNumber",
-]);
 
 const encryptionKey = process.env.ENCRYPTION_KEY || "default-key";
 
 // Define valid flight status transitions
 const validTransitions = {
-  NDPT: ["OUT", "CNCL"], // Not Departed -> Departed Gate, Cancelled
-  OUT: ["OFF", "RTBL"], // Departed Gate -> In Flight, Returned to Gate
-  OFF: ["ON", "DVRT"], // In Flight -> Landed, Diverted
+  NDPT: ["OUT", "OFF", "ON", "IN", "CNCL"], // Not Departed -> Departed Gate, Cancelled
+  OUT: ["OFF", "ON", "IN ", "RTBL"], // Departed Gate -> In Flight, Returned to
+  OFF: ["ON", "IN", "DVRT"], // In Flight -> Landed, Diverted
   ON: ["IN", "RTFL"], // Landed -> Arrived at Gate, Returned to Airport
-  IN: [], // Arrived at Gate is final state
+  IN: ["ON","NDPT"], // Arrived at Gate is final state
   CNCL: [], // Cancelled is final state
   RTBL: ["OUT", "CNCL"], // Returned to Gate -> Departed Gate, Cancelled
   RTFL: ["OUT"], // Returned to Airport -> Departed Gate
-  DVRT: ["ON"] // Diverted -> Landed
+  DVRT: ["ON"], // Diverted -> Landed
 };
+
 
 export const startFlightStatusMonitoring = () => {
   // Run every 5 minutes
-  const job = scheduleJob.scheduleJob("*/1 * * * *", async () => {
+  const job = scheduleJob.scheduleJob("*/5 * * * *", async () => {
     try {
       customLogger.info("Starting flight status monitoring job...");
-
-      // Get all active flight subscriptions that need monitoring
-      const activeSubscriptions = await getActiveFlightSubscriptions();
-
-      if (!activeSubscriptions || activeSubscriptions.length === 0) {
-        customLogger.info(
-          "No active flight subscriptions found for monitoring"
-        );
-        return;
-      }
-
-      customLogger.info(
-        `Found ${activeSubscriptions.length} active flight subscriptions to monitor`
-      );
-
       // Process each unique flight (group by flightNumber + departureDate)
-      const uniqueFlights = getUniqueFlights(activeSubscriptions);
+      const allFlightsInDB = await flightEventDb.findMany({});
 
-      for (const flight of uniqueFlights) {
+      for (const flight of allFlightsInDB) {
         await processFlightStatusUpdate(flight);
       }
 
@@ -67,96 +45,6 @@ export const startFlightStatusMonitoring = () => {
 
   customLogger.info("Flight status monitoring job scheduled (every 5 minutes)");
   return job;
-};
-
-
-export const startDayFlightMonitoring = () => {
-  // Run every 5 minutes
-  const job = scheduleJob.scheduleJob("*/1 * * * *", async () => {
-    try {
-      customLogger.info("Starting flight status monitoring job...");
-
-      // Get all active flight subscriptions that need monitoring
-      const activeSubscriptions = await getActiveFlightSubscriptions();
-
-      if (!activeSubscriptions || activeSubscriptions.length === 0) {
-        customLogger.info(
-          "No active flight subscriptions found for monitoring"
-        );
-        return;
-      }
-
-      customLogger.info(
-        `Found ${activeSubscriptions.length} active flight subscriptions to monitor`
-      );
-
-      // Process each unique flight (group by flightNumber + departureDate)
-      const uniqueFlights = getUniqueFlights(activeSubscriptions);
-
-      for (const flight of uniqueFlights) {
-        await processFlightStatusUpdate(flight);
-      }
-
-      customLogger.info("Flight status monitoring job completed successfully");
-    } catch (error) {
-      customLogger.error("Error in flight status monitoring job:", error);
-    }
-  });
-
-  customLogger.info("Flight status monitoring job scheduled (every 5 minutes)");
-  return job;
-};
-
-
-// Helper function to get active flight subscriptions
-const getActiveFlightSubscriptions = async () => {
-  try {
-    // Get all subscriptions
-    const subscriptions = await flightSubscriptionDb.findMany({});
-
-    // Filter for active subscriptions
-    const activeSubscriptions = subscriptions.filter((subscription) => {
-      // Check if subscription is active
-      if (!subscription.isSubscriptionActive) {
-        return false;
-      }
-
-      // Check if departure date is today or in the future
-      const departureDate = new Date(subscription.departureDate);
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-
-      return departureDate >= today;
-    });
-
-    return activeSubscriptions;
-  } catch (error) {
-    customLogger.error("Error fetching active flight subscriptions:", error);
-    return [];
-  }
-};
-
-// Helper function to get unique flights from subscriptions
-const getUniqueFlights = (subscriptions) => {
-  const flightMap = new Map();
-
-  subscriptions.forEach((subscription) => {
-    const key = `${subscription.flightNumber}-${subscription.departureDate}`;
-    if (!flightMap.has(key)) {
-      flightMap.set(key, {
-        flightNumber: subscription.flightNumber,
-        departureDate: subscription.departureDate,
-        carrierCode: subscription.carrierCode,
-        departureAirport: subscription.departureAirport,
-        arrivalAirport: subscription.arrivalAirport,
-        subscribers: [subscription.walletAddress],
-      });
-    } else {
-      flightMap.get(key).subscribers.push(subscription.walletAddress);
-    }
-  });
-
-  return Array.from(flightMap.values());
 };
 
 // Main function to process flight status update
@@ -166,11 +54,13 @@ const processFlightStatusUpdate = async (flight) => {
       `Processing flight status update for ${flight.flightNumber} on ${flight.departureDate}`
     );
 
+    const todayDateString = new Date().toISOString().split("T")[0];
+
     // Fetch flight data from United API
     const flightDataResponse = await fetchFlightData(
       Number(flight.flightNumber),
       {
-        departureDate: flight.departureDate,
+        departureDate: todayDateString,
         departure: flight.departureAirport,
         arrival: flight.arrivalAirport,
       }
@@ -183,21 +73,16 @@ const processFlightStatusUpdate = async (flight) => {
       return;
     }
 
-    const extractedData  =  extractKeyFlightInfo(flightDataResponse);
+    const extractedData = extractKeyFlightInfo(flightDataResponse);
     customLogger.info(
       `Successfully fetched flight data for ${flight.flightNumber} `
     );
-    // get updated flight status from united api
-
-
 
     // Get current flight event from database
-    const currentFlightEvent = extractedData.status.legStatus;
+    const currentStatus = extractedData.status.legStatus;
 
     customLogger.info(
-      `Successfully fetched flight data for ${JSON.stringify(
-        currentFlightEvent
-      )}`
+      `Successfully fetched flight data for ${JSON.stringify(currentStatus)}`
     );
     // Get blockchain data (this extracts and structures the flight data)
 
@@ -212,42 +97,45 @@ const processFlightStatusUpdate = async (flight) => {
       );
       return;
     }
-
+    const flightNumber = flight.flightNumber;
     // Extract current flight status from blockchain data
-    let currentStatus = extractCurrentFlightStatus(blockchainData);
 
-    currentStatus = decryptString(currentStatus, encryptionKey);
+    const flightDBDetails = await flightEventDb.findById(flightNumber);
+    const prevStatus = flightDBDetails?.flightStatus?.trim() || null;
+    const prevDepartureDate = flightDBDetails?.departureDate || null;
+
     customLogger.info(
-      `Current flight status for ${flight.flightNumber}: ${currentStatus}`
+      `Current flight status for ${flight.flightNumber}: Previous Status ${prevStatus} ---->  Current Status ${currentStatus}`
     );
+
+    // Check for new departure date
+    const isNewDepartureDate =
+      !prevDepartureDate || prevDepartureDate !== flight.departureDate;
 
     // Check if there's a valid status transition
     const hasValidTransition = await checkFlightTransition(
-      currentFlightEvent,
+      prevStatus,
       currentStatus,
-      flight.flightNumber
+      flightNumber
     );
 
-    if (!hasValidTransition) {
+    if (!isNewDepartureDate && !hasValidTransition) {
       customLogger.info(
-        `No valid status transition detected for ${flight.flightNumber}`
+        `No valid status transition and not a new departure date for ${flight.flightNumber}`
       );
       return;
     }
 
     customLogger.info(
-      `Valid status transition detected for ${flight.flightNumber}, proceeding with blockchain update`
+      `Update allowed for ${flight.flightNumber} – New Date: ${isNewDepartureDate}, Status Changed: ${hasValidTransition} In Blockchain`
     );
-
-    // Prepare flight data for blockchain
-    const preparedData = prepareFlightDataForBlockchain(
-      blockchainData,
-      encryptionKey
-    );
-
     // Insert data into blockchain
     const blockchainResult = await blockchainService.insertFlightDetails(
-      preparedData
+      blockchainData.blockchainFlightData,
+      blockchainData.blockchainUtcTimes,
+      blockchainData.blockchainStatusData,
+      blockchainData.marketingAirlineCodes,
+      blockchainData.marketingFlightNumbers
     );
 
     if (!blockchainResult.success) {
@@ -263,80 +151,67 @@ const processFlightStatusUpdate = async (flight) => {
 
     // Update flight event in database
     await updateFlightEvent(
-      flight,
-      currentStatus,
+      flight.flightNumber, // flightNumber
+      flight.carrierCode, // carrierCode
+      flight.departureDate, // departureDate
+      flight.departureAirport, // departureAirport
+      flight.arrivalAirport, // arrivalAirport
+      currentStatus, // flightStatus (current status from API)
       blockchainResult.transactionHash,
-      blockchainData
+      flightDataResponse.flightData
     );
-
     customLogger.info(
-      `Successfully updated flight event for ${flight.flightNumber}`
+      `Flight event updated for ${flight.flightNumber} with status ${currentStatus}`
     );
   } catch (error) {
     customLogger.error(
       `Error processing flight status update for ${flight.flightNumber}:`,
-      error
+      JSON.stringify(error, null, 2)
     );
-  }
-};
 
-// Helper function to extract current flight status from blockchain data
-const extractCurrentFlightStatus = (blockchainData) => {
-  // The blockchain data should contain the current flight status
-  if (
-    blockchainData.extractedFlightData &&
-    blockchainData.extractedFlightData.currentFlightStatus
-  ) {
-    return blockchainData.extractedFlightData.currentFlightStatus;
+    console.log("Error", error);
   }
-
-  // Fallback - look for status in the prepared data
-  if (
-    blockchainData.blockchainStatusData &&
-    blockchainData.blockchainStatusData.length > 0
-  ) {
-    return blockchainData.blockchainStatusData[0];
-  }
-
-  return "NDPT"; // Default to not departed
 };
 
 // Helper function to check if flight has valid status transition
 const checkFlightTransition = async (
-  currentFlightEvent,
-  newStatus,
+  prevStatus,
+  currentStatus,
   flightNumber
 ) => {
   try {
-    // If no current flight event exists, any status is valid (new flight)
-    if (!currentFlightEvent) {
+    // Handle missing current status (e.g., new entry)
+    if (!currentStatus) {
       customLogger.info(
-        `New flight event for ${flightNumber}, status: ${newStatus}`
+        `New flight event for ${flightNumber}, current status is missing. Assuming valid transition.`
       );
       return true;
     }
 
-    const currentStatus = currentFlightEvent.flightStatus || "NDPT";
+    // Trim whitespace from status strings
+    const prev = prevStatus?.trim();
+    const current = currentStatus?.trim();
 
     // Check if status has actually changed
-    if (currentStatus === newStatus) {
+    if (prev === current) {
       customLogger.info(
-        `No status change for ${flightNumber}, current status: ${currentStatus}`
+        `No status change for ${flightNumber}. Current status remains: ${current}`
       );
       return false;
     }
 
-    const validNextStatuses = validTransitions[currentStatus] || [];
+    // Look up valid next statuses from the previous status
+    const validNextStatuses = validTransitions[prev] || [];
 
-    if (!validNextStatuses.includes(newStatus)) {
+    if (!validNextStatuses.includes(current)) {
       customLogger.warn(
-        `Invalid status transition for ${flightNumber}: ${currentStatus} -> ${newStatus}`
+        `Invalid status transition for ${flightNumber}: ${prev} -> ${current}`
       );
       return false;
     }
 
     customLogger.info(
-      `Valid status transition for ${flightNumber}: ${currentStatus} -> ${newStatus}`
+      `Valid status transition for ${flightNumber}: ${prev} -> ${current}`
     );
     return true;
   } catch (error) {
@@ -345,57 +220,5 @@ const checkFlightTransition = async (
       error
     );
     return false;
-  }
-};
-
-// FIXED: Helper function to update flight event in database
-const updateFlightEvent = async (
-  flight,
-  currentStatus,
-  blockchainHash,
-  blockchainData
-) => {
-  try {
-    // Extract flight data from blockchain data
-    const extractedData = blockchainData.extractedFlightData || {};
-
-    const updateData = {
-      flightNumber: flight.flightNumber,
-      carrierCode: flight.carrierCode || extractedData.carrierCode,
-      departureDate: flight.departureDate,
-      departureAirport:
-        flight.departureAirport || extractedData.departureAirport,
-      arrivalAirport: flight.arrivalAirport || extractedData.arrivalAirport,
-      flightStatus: currentStatus,
-      blockchainHashKey: blockchainHash,
-      flightData: blockchainData, // Store the complete blockchain data
-    };
-
-    // Check if flight event exists
-    const existingEvent = await flightEventDb.findOne({
-      flightNumber: flight.flightNumber,
-    });
-
-    if (existingEvent) {
-      // Update existing event
-      updateData.updatedAt = new Date().toISOString();
-      await flightEventDb.updateById(flight.flightNumber, updateData);
-      customLogger.info(
-        `Flight event updated successfully for ${flight.flightNumber} with status ${currentStatus}`
-      );
-    } else {
-      // Create new event
-      updateData.createdAt = new Date().toISOString();
-      await flightEventDb.create(updateData);
-      customLogger.info(
-        `Flight event created successfully for ${flight.flightNumber} with status ${currentStatus}`
-      );
-    }
-  } catch (error) {
-    customLogger.error(
-      `Error updating flight event for ${flight.flightNumber}:`,
-      error
-    );
-    throw error;
   }
 };

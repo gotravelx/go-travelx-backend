@@ -89,7 +89,7 @@ const updateFlightEvent = async (
     };
 
     // Use update method instead of findMany
-    const result = await flightDb.update({ flightNumber }, updateItem);
+    const result = await flightDb.updateById(flightNumber, updateItem);
 
     console.log("[DYNAMODB] Flight event updated successfully", {
       flightNumber,
