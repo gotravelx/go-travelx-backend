@@ -18,7 +18,7 @@ const validTransitions = {
   OFF: ["ON", "IN", "DVRT"], // In Flight -> Landed, Diverted
   ON: ["IN", "RTFL"], // Landed -> Arrived at Gate, Returned to Airport
   IN: ["ON","NDPT"], // Arrived at Gate is final state
-  CNCL: [], // Cancelled is final state
+  CNCL: ["OUT", "OFF", "ON", "IN"], // Cancelled is final state
   RTBL: ["OUT", "CNCL"], // Returned to Gate -> Departed Gate, Cancelled
   RTFL: ["OUT"], // Returned to Airport -> Departed Gate
   DVRT: ["ON"], // Diverted -> Landed
@@ -168,8 +168,6 @@ const processFlightStatusUpdate = async (flight) => {
       `Error processing flight status update for ${flight.flightNumber}:`,
       JSON.stringify(error, null, 2)
     );
-
-    console.log("Error", error);
   }
 };
 

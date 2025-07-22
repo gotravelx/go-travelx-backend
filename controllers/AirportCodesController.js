@@ -28,7 +28,6 @@ const createAirportCodesTable = async (req, res) => {
   try {
     const dynamoClient = getDynamoClient();
     await dynamoClient.createTable(tableParams).promise();
-    console.log("AirportCodes table created successfully");
     res.status(200).json({
       message: "AirportCodes table created successfully.",
       tableName: TABLE_NAME,
@@ -92,7 +91,6 @@ const createAirportCode = async (req, res) => {
       })
       .promise();
 
-    console.log(` Airport code created: ${codeUpper}`);
     res.status(201).json({
       message: "Airport code created successfully",
       data: item,
@@ -117,8 +115,7 @@ const getAllAirportCodes = async (req, res) => {
     const response = {
       message: "Airport codes retrieved successfully",
       data: data,
-      count: data.length, // ✅ Fixed: count from data array length
-      tableName: TABLE_NAME,
+      count: data.length,
     };
 
     res.status(200).json(response);

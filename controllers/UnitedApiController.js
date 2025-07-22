@@ -8,6 +8,7 @@ import {
   checkFlightSubscription,
   extractKeyFlightInfo,
 } from "../helper/helper.js";
+import { isFlightSubscribed } from "../model/FlightSubscriptionModel.js";
 
 const agent = new https.Agent({
   rejectUnauthorized: false,
@@ -90,7 +91,6 @@ export const fetchFlightData = async (flightNumber, options = {}) => {
         data.flightStatusResp?.FlightLegs?.[0]?.OperationalFlightSegments?.[0]
           ?.ArrivalAirport?.Name || "N/A";
 
-
       logger.info(
         `[UNITED API] Flight data fetched successfully Flight Number: ${flightNumber} From: ${from} To: ${to}`
       );
@@ -141,14 +141,13 @@ export const fetchFlightDetails = async (req, res) => {
       arrival,
     });
 
-    console.log('flightData:', flightData);
-    
-
     const keyFlightInfo = extractKeyFlightInfo(flightData);
 
     let isSubscribed = false;
     if (walletAddress) {
       isSubscribed = await checkFlightSubscription(walletAddress, flightNumber);
+      const result = await isFlightSubscribed(walletAddress, flightNumber);
+      isSubscribed = result.isSubscribed;
     }
 
     const response = {

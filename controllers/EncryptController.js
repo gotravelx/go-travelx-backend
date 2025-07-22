@@ -88,33 +88,31 @@ export const prepareFlightDataForBlockchain = (flightData, encryptionKey) => {
   let onTimeUTC = flightData.onTimeUTC || "";
   let inTimeUTC = flightData.inTimeUTC || "";
 
-  // Get current UTC time for any missing timestamps
-  const currentUTCTime = new Date().toISOString();
 
   // ndpt -> out
   if (currentFlightStatus === "out") {
-    outTimeUTC = flightData.outTimeUTC || currentUTCTime;
+    outTimeUTC = flightData.outTimeUTC || "";
     customLogger.info(
       `Flight ${flightData.flightNumber} OUT time recorded: ${outTimeUTC}`
     );
   }
   // out -> off
   else if (currentFlightStatus === "off") {
-    offTimeUTC = flightData.offTimeUTC || currentUTCTime;
+    offTimeUTC = flightData.offTimeUTC || "";
     customLogger.info(
       `Flight ${flightData.flightNumber} OFF time recorded: ${offTimeUTC}`
     );
   }
   // off -> on
   else if (currentFlightStatus === "on") {
-    onTimeUTC = flightData.onTimeUTC || currentUTCTime;
+    onTimeUTC = flightData.onTimeUTC || "";
     customLogger.info(
       `Flight ${flightData.flightNumber} ON time recorded: ${onTimeUTC}`
     );
   }
   // on -> in
   else if (currentFlightStatus === "in") {
-    inTimeUTC = flightData.inTimeUTC || currentUTCTime;
+    inTimeUTC = flightData.inTimeUTC || "";
     customLogger.info(
       `Flight ${flightData.flightNumber} IN time recorded: ${inTimeUTC}`
     );
@@ -149,7 +147,7 @@ export const prepareFlightDataForBlockchain = (flightData, encryptionKey) => {
 
   // Determine currentFlightTime based on status
   let currentFlightTime =
-    inTimeUTC || onTimeUTC || offTimeUTC || outTimeUTC || currentUTCTime;
+    inTimeUTC || onTimeUTC || offTimeUTC || outTimeUTC || "";
   customLogger.info(`Current flight time determined: ${currentFlightTime}`);
 
   const blockchainFlightData = [
@@ -183,12 +181,12 @@ export const prepareFlightDataForBlockchain = (flightData, encryptionKey) => {
   const blockchainStatusData = [
     statusCode, // index 0 - status code
     flightStatus, // index 1 - flight status description
-    flightData.departureStatus || "",
+    flightData.arrivalState || "",
     flightData.departureState || "",
     outTimeUTC, // index 4 - outTimeUTC
     offTimeUTC, // index 5 - offTimeUTC
     onTimeUTC, // index 6 - onTimeUTC
-    inTimeUTC || currentFlightTime, // index 7 - inTimeUTC (used for event) - also ensure this has a value
+    inTimeUTC, // index 7 - inTimeUTC
   ];
 
   // Handle marketing segments - ensure at least one empty entry if empty

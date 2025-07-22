@@ -107,10 +107,7 @@ export const getBlockchainData = async (flightStatusResp, encryptionKey) => {
     const extractedFlightData = {
       // Required fields
       flightNumber: flight.FlightNumber || "",
-      carrierCode:
-        operationalSegment.OperatingAirline?.IATACode ||
-        scheduledSegment?.OperatingAirlineCode ||
-        "",
+      carrierCode:"UA"||"UA",
       scheduledDepartureDate:
         flight.FlightOriginationDate || flight.DepartureDate || "",
 

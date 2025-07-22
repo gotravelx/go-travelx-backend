@@ -14,6 +14,8 @@ import blockchainService from "../utils/FlightBlockchainService.js";
 import customLogger from "../utils/Logger.js";
 import { fetchFlightData } from "./UnitedApiController.js";
 
+import { flightDb } from "../model/FlightEventModel.js";
+
 const encryptionKey = process.env.ENCRYPTION_KEY;
 const walletAddress = process.env.WALLET_ADDRESS;
 
@@ -265,13 +267,8 @@ export const addFlightSubscription = async (req, res) => {
           customLogger.info(
             `[SUBSCRIPTION] Flight data inserted to blockchain. Hash: ${blockchainFlightHash}`
           );
-        } else {
-          customLogger.info(
-            `[SUBSCRIPTION] Flight already exists in blockchain for ${flightNumber}`
-          );
-        }
 
-        // Insert flight event to database
+                  // Insert flight event to database
         flightEventResult = await insertFlightEvent(
           flightNumber,
           carrierCode,
@@ -282,6 +279,13 @@ export const addFlightSubscription = async (req, res) => {
           blockchainFlightHash,
           flightData
         );
+        } else {
+          customLogger.info(
+            `[SUBSCRIPTION] Flight already exists in blockchain for ${flightNumber}`
+          );
+        }
+
+
 
         customLogger.info(
           `[SUBSCRIPTION] Flight event inserted to database for ${flightNumber}`
@@ -410,7 +414,6 @@ export const addFlightSubscription = async (req, res) => {
         walletAddress,
         flightNumber,
         carrierCode,
-        departureDate,
         departureAirport,
         arrivalAirport,
         blockchainTxHash: blockchainSubscription.transactionHash,
@@ -480,73 +483,84 @@ export const addFlightSubscription = async (req, res) => {
 
 export const getSubscribedFlights = async (req, res) => {
   try {
-    // For composite key table, we need to scan by walletAddress
-    const subscribedFlights = await flightSubscription.findMany({
+
+    if (!walletAddress) {
+      return res.status(400).json({
+        success: false,
+        message: "walletAddress is required",
+      });
+    }
+
+    // Step 1: Fetch active subscriptions for wallet
+    const activeSubscriptions = await subscribeDb.findMany({
       walletAddress,
+      isSubscriptionActive: true,
     });
 
-    if (!subscribedFlights || subscribedFlights.length === 0) {
+    if (!activeSubscriptions || activeSubscriptions.length === 0) {
       return res.status(200).json({
         success: true,
         walletAddress,
         subscriptionCount: 0,
         subscriptions: [],
-        message: "No subscribed flights found for this wallet",
+        message: "No active subscribed flights found",
       });
     }
 
-    console.log(`Found ${subscribedFlights.length} subscribed flights`);
-
-    // Process each subscription to get flight details
+    // Step 2: Process each subscription
     const subscriptionsData = await Promise.all(
-      subscribedFlights.map(async (subscription) => {
-        let flightEventData = null;
-
+      activeSubscriptions.map(async (subscription) => {
         try {
-          console.log(
-            `No flight event found for: ${subscription.flightNumber}`
-          );
-
-          // Try alternative search methods if direct lookup fails
-          const flightEventRecords = await flightEvent.findMany({
+          // Try exact match in FlightEvents table
+          let flightEvent = await flightDb.findOne({
             flightNumber: subscription.flightNumber,
           });
 
-          if (flightEventRecords && flightEventRecords.length > 0) {
-            console.log(
-              `Found flight event via findMany for: ${subscription.flightNumber}`
-            );
-            flightEventData = extractKeyFlightInfo(
-              flightEventRecords[0]?.flightData
-            );
-          }
-        } catch (error) {
-          console.error(
-            `Error fetching flight events for ${subscription.flightNumber}:`,
-            error
-          );
-        }
+          if (!flightEvent) {
+            // Fallback to findMany
+            const eventList = await flightDb.findMany({
+              flightNumber: subscription.flightNumber,
+            });
 
-        return {
-          flightNumber: subscription.flightNumber,
-          subscriptionDate: subscription.subscriptionDate,
-          subscriptionHash:
-            subscription.subscriptionHash || subscription.blockchainHashKey,
-          status: subscription.status || "active",
-          flightDetails: flightEventData,
-        };
+            if (eventList && eventList.length > 0) {
+              flightEvent = eventList[0];
+            }
+          }
+
+          // If no flightData available, skip
+          if (!flightEvent || !flightEvent.flightData) return null;
+
+          const flightInfo = extractKeyFlightInfo({
+            flightData: flightEvent.flightData,
+          });
+
+          return {
+            flightNumber: subscription.flightNumber,
+            blockchainTxHash: subscription.blockchainTxHash || null,
+            subscriptionDate: subscription.subscriptionDate,
+            ...flightInfo,
+            blockchainHashKey: flightEvent.blockchainHashKey || null,
+          };
+        } catch (err) {
+          console.error(`Error processing ${subscription.flightNumber}`, err);
+          return null;
+        }
       })
     );
+
+    // Filter out failed records
+    const filteredData = subscriptionsData.filter((item) => item !== null);
 
     return res.status(200).json({
       success: true,
       walletAddress,
-      subscriptionCount: subscriptionsData.length,
-      subscriptions: subscriptionsData,
+      subscriptionCount: filteredData.length,
+      subscriptions: filteredData,
       message: "Subscribed flights retrieved successfully",
     });
   } catch (error) {
     customLogger.error("Error fetching subscribed flights:", error);
+
     return res.status(500).json({
       success: false,
       error: "Failed to fetch subscribed flights",
@@ -554,13 +568,11 @@ export const getSubscribedFlights = async (req, res) => {
     });
   }
 };
+
 /* ====================== Get Subscribed Flight's End =========================*/
 
 /* ============  Unsubscribe flight via wallet address and flight Number */
 
-/* ============  Unsubscribe flight via wallet address and flight Number */
-
-/* ============  Unsubscribe flight via wallet address and flight Number */
 
 export const unsubscribeFlight = async (req, res) => {
   try {
@@ -719,27 +731,28 @@ export const unsubscribeFlight = async (req, res) => {
       }
     }
 
-    // Step 3: Update database subscriptions (mark as inactive)
+    // Step 3: Update database subscriptions using DynamoDB operations
     const dbUpdateResults = [];
     const dbUpdateErrors = [];
 
     for (const subscription of existingSubscriptions) {
       try {
+        // Prepare update data - EXCLUDE key attributes (walletAddress, flightNumber)
+        const updateData = {
+          isSubscriptionActive: false, // Set to false when unsubscribing
+          unsubscriptionDate: new Date().toISOString(),
+          blockchainUnsubscriptionTxHash:
+            blockchainUnsubscription?.transactionHash || null,
+          updatedAt: new Date().toISOString(),
+        };
+
+        // Use DynamoDB updateOne operation
         await subscribeDb.updateOne(
-          {
-            walletAddress,
-            flightNumber: subscription.flightNumber,
-          },
-          {
-            isSubscriptionActive: false,
-            unsubscriptionDate: new Date().toISOString(),
-            blockchainUnsubscriptionTxHash:
-              blockchainUnsubscription?.transactionHash || null,
-            blockchainTxHash:
-              blockchainUnsubscription?.transactionHash ||
-              subscription.subscription.blockchainTxHash, // Keep original subscription hash
-            updatedAt: new Date().toISOString(),
-          }
+          { 
+            walletAddress, 
+            flightNumber: subscription.flightNumber 
+          }, 
+          updateData
         );
 
         dbUpdateResults.push({
@@ -748,7 +761,7 @@ export const unsubscribeFlight = async (req, res) => {
         });
 
         customLogger.info(
-          `[UNSUBSCRIBE] Updated database subscription for flight ${subscription.flightNumber}`
+          `[UNSUBSCRIBE] Updated database subscription for flight ${subscription.flightNumber} - isSubscriptionActive set to false`
         );
       } catch (dbError) {
         customLogger.error(
@@ -789,6 +802,7 @@ export const unsubscribeFlight = async (req, res) => {
         activeSubscriptions: existingSubscriptions.length,
         successfulUnsubscriptions,
         dbUpdateResults,
+        subscriptionStatus: "All subscriptions marked as inactive (isSubscriptionActive: false)",
       },
     };
 
@@ -807,7 +821,7 @@ export const unsubscribeFlight = async (req, res) => {
     }
 
     customLogger.info(
-      `[UNSUBSCRIBE] Unsubscription process completed successfully for ${successfulUnsubscriptions} flights`
+      `[UNSUBSCRIBE] Unsubscription process completed successfully for ${successfulUnsubscriptions} flights - all marked as inactive`
     );
 
     return res.status(200).json(response);

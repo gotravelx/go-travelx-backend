@@ -232,9 +232,9 @@ export class FlightBlockchainService {
         carrierCode
       );
 
-      console.log(detailsArray.flightData);
-      console.log(detailsArray.utcTime);
-      console.log(detailsArray.status);
+      // console.log(detailsArray.flightData);
+      // console.log(detailsArray.utcTime);
+      // console.log(detailsArray.status);
 
       return detailsArray.map((detail) => {
         const marketedSegments = detail.marketedSegments.map((segment) => ({
