@@ -1,3 +1,4 @@
+
 import logger from "../utils/Logger.js";
 
 
@@ -60,6 +61,8 @@ class TokenRefresher {
             return this.currentToken;
         } catch (error) {
             logger.error('Error refreshing token:', error);
+           console.log(`Error refreshing token: ${error.message}`,error);
+           
             return null;
         }
     }
