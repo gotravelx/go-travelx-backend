@@ -6,8 +6,9 @@
   "type": "module",
   "scripts": {
     "test": "jest --coverage",
-    "start": "app.js",
-    "dev": "nodemon app.js"
+    "start": "NODE_ENV=prod node app.js",
+    "dev": "NODE_ENV=dev nodemon app.js",
+    "local": "NODE_ENV=local nodemon app.js"
   },
   "keywords": [],
   "author": "",

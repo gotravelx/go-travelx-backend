@@ -9,8 +9,17 @@ import AirPortCodesRouter from "./routes/AirportCodesRoutes.js";
 import TokenRefresher from "./helper/0authTokenManager.js";
 import tokenConfig from "./config/0authTokenConfig.js";
 import SubscriptionRouter from "./routes/SubscritionRoutes.js";
+import fs from "fs";
 
-dotenv.config();
+const envFile = `.env.${process.env.NODE_ENV || "local"}`;
+
+if (fs.existsSync(envFile)) {
+  dotenv.config({ path: envFile });
+  console.log(`Loaded environment from ${envFile}`);
+} else {
+  dotenv.config();
+  console.log(`${envFile} not found, falling back to default .env`);
+}
 
 const app = express();
 const PORT = process.env.PORT || 3000;
