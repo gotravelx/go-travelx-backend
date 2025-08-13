@@ -160,7 +160,6 @@ export const getHistoricalData = async (req, res) => {
       return decryptedFlight;
     });
 
-
     res.json({
       flightNumber,
       fromDate,
