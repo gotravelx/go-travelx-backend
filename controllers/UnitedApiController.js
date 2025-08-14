@@ -117,6 +117,8 @@ export const fetchFlightData = async (flightNumber, options = {}) => {
     }
   } catch (error) {
     logger.error("[API] Error fetching flight data:", error);
+    console.log("[API] Error fetching flight data:", error);
+    
     return {
       success: false,
       errorMessage:
