@@ -17,4 +17,4 @@ COPY . .
 EXPOSE 3000
 
 # Start the Node.js API
-CMD ["node", "server.js"]
+CMD ["node", "app.js"]
