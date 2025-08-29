@@ -5,6 +5,81 @@ const ContractAbi = [
         "type": "constructor"
     },
     {
+        "inputs": [],
+        "name": "AlreadySubscribed",
+        "type": "error"
+    },
+    {
+        "inputs": [],
+        "name": "ArrayLengthMismatch",
+        "type": "error"
+    },
+    {
+        "inputs": [],
+        "name": "DateRangeExceeded",
+        "type": "error"
+    },
+    {
+        "inputs": [],
+        "name": "FlightNotFound",
+        "type": "error"
+    },
+    {
+        "inputs": [],
+        "name": "InvalidArrayLength",
+        "type": "error"
+    },
+    {
+        "inputs": [],
+        "name": "InvalidDateFormat",
+        "type": "error"
+    },
+    {
+        "inputs": [],
+        "name": "InvalidInput",
+        "type": "error"
+    },
+    {
+        "inputs": [],
+        "name": "NoDataForCarrier",
+        "type": "error"
+    },
+    {
+        "inputs": [],
+        "name": "NoFlightDataProvided",
+        "type": "error"
+    },
+    {
+        "inputs": [],
+        "name": "NotSubscribed",
+        "type": "error"
+    },
+    {
+        "inputs": [],
+        "name": "RateLimitExceeded",
+        "type": "error"
+    },
+    {
+        "inputs": [],
+        "name": "ReentrancyGuard",
+        "type": "error"
+    },
+    {
+        "inputs": [],
+        "name": "StringTooLong",
+        "type": "error"
+    },
+    {
+        "inputs": [],
+        "name": "TooManyFlightsInBatch",
+        "type": "error"
+    },
+    {
+        "inputs": [],
+        "name": "Unauthorized",
+        "type": "error"
+    },
+    {
         "anonymous": false,
         "inputs": [
             {
@@ -16,25 +91,13 @@ const ContractAbi = [
             {
                 "indexed": false,
                 "internalType": "string",
-                "name": "scheduledDepartureDate",
-                "type": "string"
-            },
-            {
-                "indexed": false,
-                "internalType": "string",
                 "name": "carrierCode",
                 "type": "string"
             },
             {
                 "indexed": false,
                 "internalType": "string",
-                "name": "arrivalCity",
-                "type": "string"
-            },
-            {
-                "indexed": false,
-                "internalType": "string",
-                "name": "departureCity",
+                "name": "flightOriginateDate",
                 "type": "string"
             },
             {
@@ -52,61 +115,35 @@ const ContractAbi = [
             {
                 "indexed": false,
                 "internalType": "string",
-                "name": "arrivalGate",
+                "name": "arrivalCity",
                 "type": "string"
             },
             {
                 "indexed": false,
                 "internalType": "string",
-                "name": "departureGate",
+                "name": "departureCity",
                 "type": "string"
             },
             {
                 "indexed": false,
                 "internalType": "string",
-                "name": "CurrentFlightStatus",
+                "name": "arrivalStatus",
                 "type": "string"
             },
             {
-                "components": [
-                    {
-                        "internalType": "string",
-                        "name": "actualArrivalUTC",
-                        "type": "string"
-                    },
-                    {
-                        "internalType": "string",
-                        "name": "actualDepartureUTC",
-                        "type": "string"
-                    },
-                    {
-                        "internalType": "string",
-                        "name": "estimatedArrivalUTC",
-                        "type": "string"
-                    },
-                    {
-                        "internalType": "string",
-                        "name": "estimatedDepartureUTC",
-                        "type": "string"
-                    },
-                    {
-                        "internalType": "string",
-                        "name": "scheduledArrivalUTC",
-                        "type": "string"
-                    },
-                    {
-                        "internalType": "string",
-                        "name": "scheduledDepartureUTC",
-                        "type": "string"
-                    }
-                ],
                 "indexed": false,
-                "internalType": "struct FlightStatusOracle.UTCTimeStruct",
-                "name": "utcTimes",
-                "type": "tuple"
+                "internalType": "string",
+                "name": "departureStatus",
+                "type": "string"
+            },
+            {
+                "indexed": false,
+                "internalType": "string",
+                "name": "legStatus",
+                "type": "string"
             }
         ],
-        "name": "FlightDataSet",
+        "name": "FlightDataInserted",
         "type": "event"
     },
     {
@@ -116,18 +153,6 @@ const ContractAbi = [
                 "indexed": false,
                 "internalType": "string",
                 "name": "flightNumber",
-                "type": "string"
-            },
-            {
-                "indexed": false,
-                "internalType": "string",
-                "name": "scheduledDepartureDate",
-                "type": "string"
-            },
-            {
-                "indexed": false,
-                "internalType": "string",
-                "name": "currentFlightStatusTime",
                 "type": "string"
             },
             {
@@ -139,35 +164,29 @@ const ContractAbi = [
             {
                 "indexed": false,
                 "internalType": "string",
-                "name": "FlightStatus",
+                "name": "flightOriginateDate",
                 "type": "string"
             },
             {
                 "indexed": false,
                 "internalType": "string",
-                "name": "ArrivalState",
+                "name": "newArrivalStatus",
                 "type": "string"
             },
             {
                 "indexed": false,
                 "internalType": "string",
-                "name": "DepartureState",
+                "name": "newDepartureStatus",
                 "type": "string"
             },
             {
                 "indexed": false,
                 "internalType": "string",
-                "name": "bagClaim",
-                "type": "string"
-            },
-            {
-                "indexed": false,
-                "internalType": "string",
-                "name": "FlightStatusCode",
+                "name": "newLegStatus",
                 "type": "string"
             }
         ],
-        "name": "FlightStatusUpdate",
+        "name": "FlightStatusUpdated",
         "type": "event"
     },
     {
@@ -175,12 +194,6 @@ const ContractAbi = [
         "inputs": [
             {
                 "indexed": false,
-                "internalType": "string",
-                "name": "flightNumber",
-                "type": "string"
-            },
-            {
-                "indexed": true,
                 "internalType": "address",
                 "name": "user",
                 "type": "address"
@@ -188,7 +201,19 @@ const ContractAbi = [
             {
                 "indexed": false,
                 "internalType": "string",
+                "name": "flightNumber",
+                "type": "string"
+            },
+            {
+                "indexed": false,
+                "internalType": "string",
                 "name": "carrierCode",
+                "type": "string"
+            },
+            {
+                "indexed": false,
+                "internalType": "string",
+                "name": "arrivalAirport",
                 "type": "string"
             },
             {
@@ -196,15 +221,46 @@ const ContractAbi = [
                 "internalType": "string",
                 "name": "departureAirport",
                 "type": "string"
+            }
+        ],
+        "name": "FlightSubscriptionAdded",
+        "type": "event"
+    },
+    {
+        "anonymous": false,
+        "inputs": [
+            {
+                "indexed": false,
+                "internalType": "address",
+                "name": "user",
+                "type": "address"
             },
             {
                 "indexed": false,
-                "internalType": "bool",
-                "name": "isSubscribe",
-                "type": "bool"
+                "internalType": "string",
+                "name": "flightNumber",
+                "type": "string"
+            },
+            {
+                "indexed": false,
+                "internalType": "string",
+                "name": "carrierCode",
+                "type": "string"
+            },
+            {
+                "indexed": false,
+                "internalType": "string",
+                "name": "arrivalAirport",
+                "type": "string"
+            },
+            {
+                "indexed": false,
+                "internalType": "string",
+                "name": "departureAirport",
+                "type": "string"
             }
         ],
-        "name": "SubscriptionDetails",
+        "name": "FlightUnsubscribed",
         "type": "event"
     },
     {
@@ -213,126 +269,44 @@ const ContractAbi = [
             {
                 "indexed": true,
                 "internalType": "address",
-                "name": "user",
+                "name": "oracle",
                 "type": "address"
-            },
-            {
-                "indexed": false,
-                "internalType": "uint256",
-                "name": "numberOfFlightsUnsubscribed",
-                "type": "uint256"
             }
         ],
-        "name": "SubscriptionsRemoved",
+        "name": "OracleAuthorized",
         "type": "event"
     },
     {
+        "anonymous": false,
         "inputs": [
             {
-                "internalType": "string",
-                "name": "",
-                "type": "string"
-            },
-            {
-                "internalType": "string",
-                "name": "",
-                "type": "string"
-            },
-            {
-                "internalType": "string",
-                "name": "",
-                "type": "string"
-            },
-            {
-                "internalType": "uint256",
-                "name": "",
-                "type": "uint256"
+                "indexed": true,
+                "internalType": "address",
+                "name": "oracle",
+                "type": "address"
             }
         ],
-        "name": "MarketedFlightSegments",
-        "outputs": [
-            {
-                "internalType": "string",
-                "name": "MarketingAirlineCode",
-                "type": "string"
-            },
-            {
-                "internalType": "string",
-                "name": "FlightNumber",
-                "type": "string"
-            }
-        ],
-        "stateMutability": "view",
-        "type": "function"
+        "name": "OracleRevoked",
+        "type": "event"
     },
     {
+        "anonymous": false,
         "inputs": [
             {
-                "internalType": "string",
-                "name": "",
-                "type": "string"
+                "indexed": true,
+                "internalType": "address",
+                "name": "previousOwner",
+                "type": "address"
             },
             {
-                "internalType": "string",
-                "name": "",
-                "type": "string"
-            },
-            {
-                "internalType": "string",
-                "name": "",
-                "type": "string"
+                "indexed": true,
+                "internalType": "address",
+                "name": "newOwner",
+                "type": "address"
             }
         ],
-        "name": "UtcTimes",
-        "outputs": [
-            {
-                "internalType": "string",
-                "name": "actualArrivalUTC",
-                "type": "string"
-            },
-            {
-                "internalType": "string",
-                "name": "actualDepartureUTC",
-                "type": "string"
-            },
-            {
-                "internalType": "string",
-                "name": "estimatedArrivalUTC",
-                "type": "string"
-            },
-            {
-                "internalType": "string",
-                "name": "estimatedDepartureUTC",
-                "type": "string"
-            },
-            {
-                "internalType": "string",
-                "name": "scheduledArrivalUTC",
-                "type": "string"
-            },
-            {
-                "internalType": "string",
-                "name": "scheduledDepartureUTC",
-                "type": "string"
-            },
-            {
-                "internalType": "string",
-                "name": "arrivalDelayMinutes",
-                "type": "string"
-            },
-            {
-                "internalType": "string",
-                "name": "departureDelayMinutes",
-                "type": "string"
-            },
-            {
-                "internalType": "string",
-                "name": "bagClaim",
-                "type": "string"
-            }
-        ],
-        "stateMutability": "view",
-        "type": "function"
+        "name": "OwnershipTransferred",
+        "type": "event"
     },
     {
         "inputs": [
@@ -344,6 +318,11 @@ const ContractAbi = [
             {
                 "internalType": "string",
                 "name": "carrierCode",
+                "type": "string"
+            },
+            {
+                "internalType": "string",
+                "name": "arrivalAirport",
                 "type": "string"
             },
             {
@@ -360,62 +339,24 @@ const ContractAbi = [
     {
         "inputs": [
             {
-                "internalType": "string",
-                "name": "",
-                "type": "string"
-            },
-            {
-                "internalType": "string",
-                "name": "",
-                "type": "string"
-            },
-            {
-                "internalType": "string",
-                "name": "",
-                "type": "string"
+                "internalType": "address",
+                "name": "oracle",
+                "type": "address"
             }
         ],
-        "name": "checkFlightStatus",
+        "name": "authorizeOracle",
+        "outputs": [],
+        "stateMutability": "nonpayable",
+        "type": "function"
+    },
+    {
+        "inputs": [],
+        "name": "getAllFlightNumbers",
         "outputs": [
             {
-                "internalType": "string",
-                "name": "flightStatusCode",
-                "type": "string"
-            },
-            {
-                "internalType": "string",
-                "name": "flightStatusDescription",
-                "type": "string"
-            },
-            {
-                "internalType": "string",
-                "name": "ArrivalState",
-                "type": "string"
-            },
-            {
-                "internalType": "string",
-                "name": "DepartureState",
-                "type": "string"
-            },
-            {
-                "internalType": "string",
-                "name": "outUtc",
-                "type": "string"
-            },
-            {
-                "internalType": "string",
-                "name": "offUtc",
-                "type": "string"
-            },
-            {
-                "internalType": "string",
-                "name": "onUtc",
-                "type": "string"
-            },
-            {
-                "internalType": "string",
-                "name": "inUtc",
-                "type": "string"
+                "internalType": "string[]",
+                "name": "",
+                "type": "string[]"
             }
         ],
         "stateMutability": "view",
@@ -423,72 +364,6 @@ const ContractAbi = [
     },
     {
         "inputs": [
-            {
-                "internalType": "string",
-                "name": "",
-                "type": "string"
-            },
-            {
-                "internalType": "string",
-                "name": "",
-                "type": "string"
-            },
-            {
-                "internalType": "uint256",
-                "name": "",
-                "type": "uint256"
-            }
-        ],
-        "name": "flightDates",
-        "outputs": [
-            {
-                "internalType": "string",
-                "name": "",
-                "type": "string"
-            }
-        ],
-        "stateMutability": "view",
-        "type": "function"
-    },
-    {
-        "inputs": [
-            {
-                "internalType": "uint256",
-                "name": "",
-                "type": "uint256"
-            }
-        ],
-        "name": "flightNumbers",
-        "outputs": [
-            {
-                "internalType": "string",
-                "name": "",
-                "type": "string"
-            }
-        ],
-        "stateMutability": "view",
-        "type": "function"
-    },
-    {
-        "inputs": [
-            {
-                "internalType": "string",
-                "name": "",
-                "type": "string"
-            },
-            {
-                "internalType": "string",
-                "name": "",
-                "type": "string"
-            },
-            {
-                "internalType": "string",
-                "name": "",
-                "type": "string"
-            }
-        ],
-        "name": "flights",
-        "outputs": [
             {
                 "internalType": "string",
                 "name": "flightNumber",
@@ -496,58 +371,40 @@ const ContractAbi = [
             },
             {
                 "internalType": "string",
-                "name": "scheduledDepartureDate",
+                "name": "carrierCode",
+                "type": "string"
+            }
+        ],
+        "name": "getCurrentFlightStatus",
+        "outputs": [
+            {
+                "internalType": "string",
+                "name": "",
+                "type": "string"
+            }
+        ],
+        "stateMutability": "view",
+        "type": "function"
+    },
+    {
+        "inputs": [
+            {
+                "internalType": "string",
+                "name": "flightNumber",
                 "type": "string"
             },
             {
                 "internalType": "string",
                 "name": "carrierCode",
                 "type": "string"
-            },
+            }
+        ],
+        "name": "getFlightDates",
+        "outputs": [
             {
-                "internalType": "string",
-                "name": "arrivalCity",
-                "type": "string"
-            },
-            {
-                "internalType": "string",
-                "name": "departureCity",
-                "type": "string"
-            },
-            {
-                "internalType": "string",
-                "name": "arrivalAirport",
-                "type": "string"
-            },
-            {
-                "internalType": "string",
-                "name": "departureAirport",
-                "type": "string"
-            },
-            {
-                "internalType": "string",
-                "name": "operatingAirlineCode",
-                "type": "string"
-            },
-            {
-                "internalType": "string",
-                "name": "arrivalGate",
-                "type": "string"
-            },
-            {
-                "internalType": "string",
-                "name": "departureGate",
-                "type": "string"
-            },
-            {
-                "internalType": "string",
-                "name": "flightStatus",
-                "type": "string"
-            },
-            {
-                "internalType": "string",
-                "name": "equipmentModel",
-                "type": "string"
+                "internalType": "string[]",
+                "name": "",
+                "type": "string[]"
             }
         ],
         "stateMutability": "view",
@@ -579,9 +436,19 @@ const ContractAbi = [
                 "internalType": "string",
                 "name": "carrierCode",
                 "type": "string"
+            },
+            {
+                "internalType": "string",
+                "name": "arrivalAirport",
+                "type": "string"
+            },
+            {
+                "internalType": "string",
+                "name": "departureAirport",
+                "type": "string"
             }
         ],
-        "name": "getFlightDetails",
+        "name": "getFlightHistory",
         "outputs": [
             {
                 "components": [
@@ -589,29 +456,26 @@ const ContractAbi = [
                         "components": [
                             {
                                 "internalType": "string",
-                                "name": "flightNumber",
-                                "type": "string"
-                            },
-                            {
-                                "internalType": "string",
-                                "name": "scheduledDepartureDate",
-                                "type": "string"
-                            },
-                            {
-                                "internalType": "string",
                                 "name": "carrierCode",
                                 "type": "string"
                             },
                             {
                                 "internalType": "string",
-                                "name": "arrivalCity",
+                                "name": "flightNumber",
                                 "type": "string"
                             },
                             {
                                 "internalType": "string",
-                                "name": "departureCity",
+                                "name": "flightOriginateDate",
                                 "type": "string"
-                            },
+                            }
+                        ],
+                        "internalType": "struct FlightStatusOracle.FlightIdentifiers",
+                        "name": "identifiers",
+                        "type": "tuple"
+                    },
+                    {
+                        "components": [
                             {
                                 "internalType": "string",
                                 "name": "arrivalAirport",
@@ -624,162 +488,48 @@ const ContractAbi = [
                             },
                             {
                                 "internalType": "string",
-                                "name": "operatingAirlineCode",
+                                "name": "arrivalCity",
                                 "type": "string"
                             },
                             {
                                 "internalType": "string",
-                                "name": "arrivalGate",
-                                "type": "string"
-                            },
-                            {
-                                "internalType": "string",
-                                "name": "departureGate",
-                                "type": "string"
-                            },
-                            {
-                                "internalType": "string",
-                                "name": "flightStatus",
-                                "type": "string"
-                            },
-                            {
-                                "internalType": "string",
-                                "name": "equipmentModel",
+                                "name": "departureCity",
                                 "type": "string"
                             }
                         ],
-                        "internalType": "struct FlightStatusOracle.FlightData",
-                        "name": "flightData",
+                        "internalType": "struct FlightStatusOracle.AirportDetails",
+                        "name": "airports",
                         "type": "tuple"
                     },
                     {
                         "components": [
                             {
                                 "internalType": "string",
-                                "name": "actualArrivalUTC",
+                                "name": "arrivalStatus",
                                 "type": "string"
                             },
                             {
                                 "internalType": "string",
-                                "name": "actualDepartureUTC",
+                                "name": "departureStatus",
                                 "type": "string"
                             },
                             {
                                 "internalType": "string",
-                                "name": "estimatedArrivalUTC",
-                                "type": "string"
-                            },
-                            {
-                                "internalType": "string",
-                                "name": "estimatedDepartureUTC",
-                                "type": "string"
-                            },
-                            {
-                                "internalType": "string",
-                                "name": "scheduledArrivalUTC",
-                                "type": "string"
-                            },
-                            {
-                                "internalType": "string",
-                                "name": "scheduledDepartureUTC",
-                                "type": "string"
-                            },
-                            {
-                                "internalType": "string",
-                                "name": "arrivalDelayMinutes",
-                                "type": "string"
-                            },
-                            {
-                                "internalType": "string",
-                                "name": "departureDelayMinutes",
-                                "type": "string"
-                            },
-                            {
-                                "internalType": "string",
-                                "name": "bagClaim",
+                                "name": "legStatus",
                                 "type": "string"
                             }
                         ],
-                        "internalType": "struct FlightStatusOracle.UtcTime",
-                        "name": "utcTime",
+                        "internalType": "struct FlightStatusOracle.FlightStatuses",
+                        "name": "statuses",
                         "type": "tuple"
                     },
                     {
-                        "components": [
-                            {
-                                "internalType": "string",
-                                "name": "flightStatusCode",
-                                "type": "string"
-                            },
-                            {
-                                "internalType": "string",
-                                "name": "flightStatusDescription",
-                                "type": "string"
-                            },
-                            {
-                                "internalType": "string",
-                                "name": "ArrivalState",
-                                "type": "string"
-                            },
-                            {
-                                "internalType": "string",
-                                "name": "DepartureState",
-                                "type": "string"
-                            },
-                            {
-                                "internalType": "string",
-                                "name": "outUtc",
-                                "type": "string"
-                            },
-                            {
-                                "internalType": "string",
-                                "name": "offUtc",
-                                "type": "string"
-                            },
-                            {
-                                "internalType": "string",
-                                "name": "onUtc",
-                                "type": "string"
-                            },
-                            {
-                                "internalType": "string",
-                                "name": "inUtc",
-                                "type": "string"
-                            }
-                        ],
-                        "internalType": "struct FlightStatusOracle.statuss",
-                        "name": "status",
-                        "type": "tuple"
-                    },
-                    {
-                        "components": [
-                            {
-                                "internalType": "string",
-                                "name": "MarketingAirlineCode",
-                                "type": "string"
-                            },
-                            {
-                                "internalType": "string",
-                                "name": "FlightNumber",
-                                "type": "string"
-                            }
-                        ],
-                        "internalType": "struct FlightStatusOracle.MarketedFlightSegment[]",
-                        "name": "marketedSegments",
-                        "type": "tuple[]"
-                    },
-                    {
-                        "internalType": "string",
-                        "name": "currentStatus",
-                        "type": "string"
-                    },
-                    {
-                        "internalType": "string",
-                        "name": "scheduledDepartureDate",
-                        "type": "string"
+                        "internalType": "bytes",
+                        "name": "compressedFlightInformation",
+                        "type": "bytes"
                     }
                 ],
-                "internalType": "struct FlightStatusOracle.FlightDetailsWithDate[]",
+                "internalType": "struct FlightStatusOracle.FlightInfo[]",
                 "name": "",
                 "type": "tuple[]"
             }
@@ -788,52 +538,27 @@ const ContractAbi = [
         "type": "function"
     },
     {
-        "inputs": [
+        "inputs": [],
+        "name": "getOwner",
+        "outputs": [
             {
-                "internalType": "string[]",
-                "name": "flightdata",
-                "type": "string[]"
-            },
-            {
-                "internalType": "string[]",
-                "name": "Utctimes",
-                "type": "string[]"
-            },
-            {
-                "internalType": "string[]",
-                "name": "status",
-                "type": "string[]"
-            },
-            {
-                "internalType": "string[]",
-                "name": "MarketingAirlineCode",
-                "type": "string[]"
-            },
-            {
-                "internalType": "string[]",
-                "name": "marketingFlightNumber",
-                "type": "string[]"
+                "internalType": "address",
+                "name": "",
+                "type": "address"
             }
         ],
-        "name": "insertFlightDetails",
-        "outputs": [],
-        "stateMutability": "nonpayable",
+        "stateMutability": "view",
         "type": "function"
     },
     {
         "inputs": [
             {
-                "internalType": "string",
-                "name": "date1",
-                "type": "string"
-            },
-            {
-                "internalType": "string",
-                "name": "date2",
-                "type": "string"
+                "internalType": "address",
+                "name": "oracle",
+                "type": "address"
             }
         ],
-        "name": "isDateLessThanOrEqual",
+        "name": "isAuthorizedOracle",
         "outputs": [
             {
                 "internalType": "bool",
@@ -841,11 +566,16 @@ const ContractAbi = [
                 "type": "bool"
             }
         ],
-        "stateMutability": "pure",
+        "stateMutability": "view",
         "type": "function"
     },
     {
         "inputs": [
+            {
+                "internalType": "string",
+                "name": "",
+                "type": "string"
+            },
             {
                 "internalType": "string",
                 "name": "",
@@ -867,26 +597,31 @@ const ContractAbi = [
         "inputs": [
             {
                 "internalType": "address",
-                "name": "",
+                "name": "user",
                 "type": "address"
             },
             {
                 "internalType": "string",
-                "name": "",
+                "name": "flightNumber",
                 "type": "string"
             },
             {
                 "internalType": "string",
-                "name": "",
+                "name": "carrierCode",
                 "type": "string"
             },
             {
                 "internalType": "string",
-                "name": "",
+                "name": "arrivalAirport",
+                "type": "string"
+            },
+            {
+                "internalType": "string",
+                "name": "departureAirport",
                 "type": "string"
             }
         ],
-        "name": "isFlightSubscribed",
+        "name": "isUserSubscribed",
         "outputs": [
             {
                 "internalType": "bool",
@@ -901,17 +636,22 @@ const ContractAbi = [
         "inputs": [
             {
                 "internalType": "string[]",
-                "name": "flightNum",
+                "name": "flightNumbers",
                 "type": "string[]"
             },
             {
                 "internalType": "string[]",
-                "name": "carrierCode",
+                "name": "carrierCodes",
                 "type": "string[]"
             },
             {
                 "internalType": "string[]",
-                "name": "departureAirport",
+                "name": "arrivalAirports",
+                "type": "string[]"
+            },
+            {
+                "internalType": "string[]",
+                "name": "departureAirports",
                 "type": "string[]"
             }
         ],
@@ -923,20 +663,70 @@ const ContractAbi = [
     {
         "inputs": [
             {
-                "internalType": "string",
-                "name": "",
-                "type": "string"
+                "internalType": "address",
+                "name": "oracle",
+                "type": "address"
             }
         ],
-        "name": "setStatus",
-        "outputs": [
+        "name": "revokeOracle",
+        "outputs": [],
+        "stateMutability": "nonpayable",
+        "type": "function"
+    },
+    {
+        "inputs": [
+            {
+                "internalType": "string[]",
+                "name": "flightDetails",
+                "type": "string[]"
+            },
             {
                 "internalType": "string",
-                "name": "",
+                "name": "compressedFlightInformation",
                 "type": "string"
             }
         ],
-        "stateMutability": "view",
+        "name": "storeFlightDetails",
+        "outputs": [],
+        "stateMutability": "nonpayable",
+        "type": "function"
+    },
+    {
+        "inputs": [
+            {
+                "components": [
+                    {
+                        "internalType": "string[]",
+                        "name": "flightDetails",
+                        "type": "string[]"
+                    },
+                    {
+                        "internalType": "string",
+                        "name": "compressedFlightInformation",
+                        "type": "string"
+                    }
+                ],
+                "internalType": "struct FlightStatusOracle.FlightInput[]",
+                "name": "flightInputs",
+                "type": "tuple[]"
+            }
+        ],
+        "name": "storeMultipleFlightDetails",
+        "outputs": [],
+        "stateMutability": "nonpayable",
+        "type": "function"
+    },
+    {
+        "inputs": [
+            {
+                "internalType": "address",
+                "name": "newOwner",
+                "type": "address"
+            }
+        ],
+        "name": "transferOwnership",
+        "outputs": [],
+        "stateMutability": "nonpayable",
         "type": "function"
     },
     {
@@ -948,7 +738,7 @@ const ContractAbi = [
             },
             {
                 "internalType": "string",
-                "name": "scheduledDepartureDate",
+                "name": "flightOriginateDate",
                 "type": "string"
             },
             {
@@ -958,17 +748,17 @@ const ContractAbi = [
             },
             {
                 "internalType": "string",
-                "name": "currentTime",
+                "name": "arrivalStatus",
                 "type": "string"
             },
             {
                 "internalType": "string",
-                "name": "flightStatus",
+                "name": "departureStatus",
                 "type": "string"
             },
             {
                 "internalType": "string",
-                "name": "flightStatusCode",
+                "name": "legStatus",
                 "type": "string"
             }
         ],
@@ -977,6 +767,6 @@ const ContractAbi = [
         "stateMutability": "nonpayable",
         "type": "function"
     }
-]
+];
 
 export default ContractAbi;

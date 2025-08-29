@@ -260,5 +260,5 @@ export const getAllFlightDetails = async (req, res) => {
   }
 };
 
-startFlightStatusMonitoring();
+// startFlightStatusMonitoring();
  

@@ -159,10 +159,11 @@ export const addFlightSubscription = async (req, res) => {
     let isAlreadySubscribedBlockchain = false;
     try {
       isAlreadySubscribedBlockchain =
-        await blockchainService.checkFlightSubscription(
+        await blockchainService.isUserSubscribed(
           walletAddress,
           flightNumber,
           carrierCode,
+          arrivalAirport,
           departureAirport
         );
 
@@ -233,7 +234,7 @@ export const addFlightSubscription = async (req, res) => {
 
         // Check if flight exists in blockchain
         const isFlightExistInBlockchain =
-          await blockchainService.checkFlightExistence(flightNumber);
+          await blockchainService.isFlightExist(flightNumber,carrierCode);
 
         if (!isFlightExistInBlockchain) {
           // Prepare and insert flight data to blockchain
@@ -255,7 +256,15 @@ export const addFlightSubscription = async (req, res) => {
             );
           }
 
-          const blockchainInsert = await blockchainService.insertFlightDetails(
+          // const blockchainInsert = await blockchainService.storeFlightDetails(
+          //   preparedData.blockchainFlightData,
+          //   preparedData.blockchainUtcTimes,
+          //   preparedData.blockchainStatusData,
+          //   preparedData.marketingAirlineCodes,
+          //   preparedData.marketingFlightNumbers
+          // );
+
+            const blockchainInsert = await blockchainService.storeFlightDetails(
             preparedData.blockchainFlightData,
             preparedData.blockchainUtcTimes,
             preparedData.blockchainStatusData,

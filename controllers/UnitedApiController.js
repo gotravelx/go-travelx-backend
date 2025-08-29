@@ -61,6 +61,8 @@ export const fetchFlightData = async (flightNumber, options = {}) => {
     });
 
     if (!response.ok) {
+      console.log(`HTTP error! status: ${response}`);
+      
       throw new Error(`HTTP error! status: ${response.status}`);
     }
 

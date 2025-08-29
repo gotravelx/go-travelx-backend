@@ -34,10 +34,18 @@ export class FlightBlockchainService {
     try {
       const checkMethod = async () => {
         try {
-          await this.contract.isFlightExist("");
+          const contractCode = await this.provider.getCode(
+            this.contractAddress
+          );
+
+          if (contractCode === "0x") {
+            throw new Error("No contract found at the specified address");
+          }
+
           return true;
         } catch (error) {
           customLogger.error("Contract connectivity check failed:", error);
+          console.log("Contract", error);
           return false;
         }
       };
@@ -52,51 +60,34 @@ export class FlightBlockchainService {
         ),
       ]);
     } catch (error) {
-      customLogger.error("Diagnostic check error:", error);
+      customLogger.error(`Diagnostic check error:, ${error}`);
       return false;
     }
   }
 
-  async insertFlightDetails(
-    flightData,
-    utcTimes,
-    statusData,
-    marketingAirlineCodes = [],
-    marketingFlightNumbers = []
-  ) {
+  // Store single flight details - matches ABI
+  async storeFlightDetails(flightDetails, compressedFlightInformation) {
     if (!this.contractWithSigner) {
       throw new Error("Wallet not configured for transactions");
     }
 
     try {
-      console.log("flightData:", flightData);
+      // Validate input
+      if (!Array.isArray(flightDetails) || !compressedFlightInformation) {
+        throw new Error("Invalid input parameters");
+      }
 
-      const sanitizedFlightData = flightData.map((item) =>
+      const sanitizedFlightDetails = flightDetails.map((item) =>
         item !== null && item !== undefined ? String(item) : ""
       );
-      const sanitizedUtcTimes = utcTimes.map((item) =>
-        item !== null && item !== undefined ? String(item) : ""
-      );
-      const sanitizedStatusData = statusData.map((item) =>
-        item !== null && item !== undefined ? String(item) : ""
-      );
-      const sanitizedMarketingAirlineCodes = marketingAirlineCodes.map((item) =>
-        item !== null && item !== undefined ? String(item) : ""
-      );
-      const sanitizedMarketingFlightNumbers = marketingFlightNumbers.map(
-        (item) => (item !== null && item !== undefined ? String(item) : "")
-      );
+      const sanitizedCompressedInfo = String(compressedFlightInformation);
 
       let estimatedGas;
       try {
-        estimatedGas =
-          await this.contractWithSigner.estimateGas.insertFlightDetails(
-            sanitizedFlightData,
-            sanitizedUtcTimes,
-            sanitizedStatusData,
-            sanitizedMarketingAirlineCodes,
-            sanitizedMarketingFlightNumbers
-          );
+        estimatedGas = await this.contractWithSigner.estimateGas.storeFlightDetails(
+          sanitizedFlightDetails,
+          sanitizedCompressedInfo
+        );
       } catch (estimateError) {
         customLogger.error("Gas estimation failed:", estimateError);
         throw new Error(
@@ -106,12 +97,9 @@ export class FlightBlockchainService {
 
       const gasLimit = estimatedGas.mul(120).div(100);
 
-      const tx = await this.contractWithSigner.insertFlightDetails(
-        sanitizedFlightData,
-        sanitizedUtcTimes,
-        sanitizedStatusData,
-        sanitizedMarketingAirlineCodes,
-        sanitizedMarketingFlightNumbers,
+      const tx = await this.contractWithSigner.storeFlightDetails(
+        sanitizedFlightDetails,
+        sanitizedCompressedInfo,
         { gasLimit }
       );
 
@@ -123,20 +111,72 @@ export class FlightBlockchainService {
         blockNumber: receipt.blockNumber,
       };
     } catch (error) {
-      customLogger.error("Error inserting flight details:", error.message);
-      console.log(error);
-
+      customLogger.error("Error storing flight details:", error.message);
       throw error;
     }
   }
 
+  // Store multiple flight details - matches ABI
+  async storeMultipleFlightDetails(flightInputs) {
+    if (!this.contractWithSigner) {
+      throw new Error("Wallet not configured for transactions");
+    }
+
+    try {
+      // Validate input
+      if (!Array.isArray(flightInputs) || flightInputs.length === 0) {
+        throw new Error("Invalid flight inputs array");
+      }
+
+      // Sanitize flight inputs
+      const sanitizedFlightInputs = flightInputs.map(input => ({
+        flightDetails: input.flightDetails.map(detail => 
+          detail !== null && detail !== undefined ? String(detail) : ""
+        ),
+        compressedFlightInformation: String(input.compressedFlightInformation || "")
+      }));
+
+      let estimatedGas;
+      try {
+        estimatedGas = await this.contractWithSigner.estimateGas.storeMultipleFlightDetails(
+          sanitizedFlightInputs
+        );
+      } catch (estimateError) {
+        customLogger.error("Gas estimation failed:", estimateError);
+        throw new Error(
+          "Transaction would fail. Check contract requirements and input data."
+        );
+      }
+
+      const gasLimit = estimatedGas.mul(120).div(100);
+
+      const tx = await this.contractWithSigner.storeMultipleFlightDetails(
+        sanitizedFlightInputs,
+        { gasLimit }
+      );
+
+      const receipt = await tx.wait();
+
+      return {
+        success: true,
+        transactionHash: tx.hash,
+        blockNumber: receipt.blockNumber,
+        storedCount: sanitizedFlightInputs.length,
+      };
+    } catch (error) {
+      customLogger.error("Error storing multiple flight details:", error.message);
+      throw error;
+    }
+  }
+
+  // Update flight status - matches ABI
   async updateFlightStatus(
     flightNumber,
-    scheduledDepartureDate,
+    flightOriginateDate,
     carrierCode,
-    currentTime,
-    flightStatus,
-    flightStatusCode
+    arrivalStatus,
+    departureStatus,
+    legStatus
   ) {
     if (!this.contractWithSigner) {
       throw new Error("Wallet not configured for transactions");
@@ -146,35 +186,33 @@ export class FlightBlockchainService {
       // Validate input parameters
       if (
         !flightNumber ||
-        !scheduledDepartureDate ||
+        !flightOriginateDate ||
         !carrierCode ||
-        !currentTime ||
-        !flightStatus ||
-        !flightStatusCode
+        !arrivalStatus ||
+        !departureStatus ||
+        !legStatus
       ) {
         throw new Error("Invalid input parameters");
       }
 
       // Sanitize inputs
       const sanitizedFlightNumber = String(flightNumber);
-      const sanitizedScheduledDepartureDate = String(scheduledDepartureDate);
+      const sanitizedFlightOriginateDate = String(flightOriginateDate);
       const sanitizedCarrierCode = String(carrierCode);
-      const sanitizedCurrentTime = String(currentTime);
-      const sanitizedFlightStatus = String(flightStatus);
-      const sanitizedFlightStatusCode = String(flightStatusCode);
+      const sanitizedArrivalStatus = String(arrivalStatus);
+      const sanitizedDepartureStatus = String(departureStatus);
+      const sanitizedLegStatus = String(legStatus);
 
-      // First try to estimate gas
       let estimatedGas;
       try {
-        estimatedGas =
-          await this.contractWithSigner.estimateGas.updateFlightStatus(
-            sanitizedFlightNumber,
-            sanitizedScheduledDepartureDate,
-            sanitizedCarrierCode,
-            sanitizedCurrentTime,
-            sanitizedFlightStatus,
-            sanitizedFlightStatusCode
-          );
+        estimatedGas = await this.contractWithSigner.estimateGas.updateFlightStatus(
+          sanitizedFlightNumber,
+          sanitizedFlightOriginateDate,
+          sanitizedCarrierCode,
+          sanitizedArrivalStatus,
+          sanitizedDepartureStatus,
+          sanitizedLegStatus
+        );
       } catch (estimateError) {
         customLogger.error("Gas estimation failed:", estimateError);
         throw new Error(
@@ -182,21 +220,18 @@ export class FlightBlockchainService {
         );
       }
 
-      // Add a buffer to the estimated gas (e.g., 20% more)
       const gasLimit = estimatedGas.mul(120).div(100);
 
-      // Perform the transaction with manual gas limit
       const tx = await this.contractWithSigner.updateFlightStatus(
         sanitizedFlightNumber,
-        sanitizedScheduledDepartureDate,
+        sanitizedFlightOriginateDate,
         sanitizedCarrierCode,
-        sanitizedCurrentTime,
-        sanitizedFlightStatus,
-        sanitizedFlightStatusCode,
+        sanitizedArrivalStatus,
+        sanitizedDepartureStatus,
+        sanitizedLegStatus,
         { gasLimit }
       );
 
-      // Wait for transaction confirmation
       const receipt = await tx.wait();
 
       return {
@@ -210,105 +245,82 @@ export class FlightBlockchainService {
     }
   }
 
-  async getFlightDetailsByDateRange(
+  // Get flight history - matches ABI
+  async getFlightHistory(
     flightNumber,
     fromDate,
+    fromDateInTimeStamp,
     toDate,
-    carrierCode
+    carrierCode,
+    arrivalAirport,
+    departureAirport
   ) {
     try {
-      if (!flightNumber || !fromDate || !toDate || !carrierCode) {
+      if (!flightNumber || !fromDate || !toDate || !carrierCode || !arrivalAirport || !departureAirport) {
         throw new Error("Invalid input parameters");
       }
 
-      const fromTimestamp = new Date(fromDate).getTime();
-      console.log(fromTimestamp);
+      const sanitizedFromDateInTimeStamp = typeof fromDateInTimeStamp === 'number' 
+        ? fromDateInTimeStamp 
+        : new Date(fromDate).getTime() / 1000; // Convert to Unix timestamp
 
-      const detailsArray = await this.contract.getFlightDetails(
-        flightNumber,
-        fromDate,
-        fromTimestamp,
-        toDate,
-        carrierCode
+      const flightHistory = await this.contract.getFlightHistory(
+        String(flightNumber),
+        String(fromDate),
+        sanitizedFromDateInTimeStamp,
+        String(toDate),
+        String(carrierCode),
+        String(arrivalAirport),
+        String(departureAirport)
       );
 
-      // console.log(detailsArray.flightData);
-      // console.log(detailsArray.utcTime);
-      // console.log(detailsArray.status);
-
-      return detailsArray.map((detail) => {
-        const marketedSegments = detail.marketedSegments.map((segment) => ({
-          marketingAirlineCode: segment.MarketingAirlineCode,
-          flightNumber: segment.FlightNumber,
-        }));
-
-        return {
-          flightNumber: detail.flightData.flightNumber,
-          scheduledDepartureDate: detail.scheduledDepartureDate,
-          carrierCode: detail.flightData.carrierCode,
-          arrivalCity: detail.flightData.arrivalCity,
-          departureCity: detail.flightData.departureCity,
-          arrivalAirport: detail.flightData.arrivalAirport,
-          departureAirport: detail.flightData.departureAirport,
-          operatingAirlineCode: detail.flightData.operatingAirlineCode,
-          arrivalGate: detail.flightData.arrivalGate,
-          departureGate: detail.flightData.departureGate,
-          flightStatus: detail.flightData.flightStatus,
-          equipmentModel: detail.flightData.equipmentModel,
-          utcTimes: {
-            actualArrival: detail.utcTime.actualArrivalUTC,
-            actualDeparture: detail.utcTime.actualDepartureUTC,
-            estimatedArrival: detail.utcTime.estimatedArrivalUTC,
-            estimatedDeparture: detail.utcTime.estimatedDepartureUTC,
-            scheduledArrival: detail.utcTime.scheduledArrivalUTC,
-            scheduledDeparture: detail.utcTime.scheduledDepartureUTC,
-            arrivalDelayMinutes: detail.utcTime.arrivalDelayMinutes,
-            departureDelayMinutes: detail.utcTime.departureDelayMinutes,
-            bagClaim: detail.utcTime.bagClaim,
-          },
-          status: {
-            statusCode: detail.status.flightStatusCode,
-            statusDescription: detail.status.flightStatusDescription,
-            arrivalState: detail.status.ArrivalState,
-            departureState: detail.status.DepartureState,
-            outUtc: detail.status.outUtc,
-            offUtc: detail.status.offUtc,
-            onUtc: detail.status.onUtc,
-            inUtc: detail.status.inUtc,
-          },
-          marketedFlightSegments: marketedSegments,
-          currentStatus: detail.currentStatus,
-        };
-      });
+      return flightHistory.map((flight) => ({
+        identifiers: {
+          carrierCode: flight.identifiers.carrierCode,
+          flightNumber: flight.identifiers.flightNumber,
+          flightOriginateDate: flight.identifiers.flightOriginateDate,
+        },
+        airports: {
+          arrivalAirport: flight.airports.arrivalAirport,
+          departureAirport: flight.airports.departureAirport,
+          arrivalCity: flight.airports.arrivalCity,
+          departureCity: flight.airports.departureCity,
+        },
+        statuses: {
+          arrivalStatus: flight.statuses.arrivalStatus,
+          departureStatus: flight.statuses.departureStatus,
+          legStatus: flight.statuses.legStatus,
+        },
+        compressedFlightInformation: flight.compressedFlightInformation,
+      }));
     } catch (error) {
-      customLogger.error("Error fetching flight details by date range:", error);
-
-      if (error.message && error.message.includes("Flight does not exist")) {
-        return "Flight does not exist";
-      }
+      customLogger.error("Error fetching flight history:", error);
       throw error;
     }
   }
 
-  async addFlightSubscription(flightNumber, carrierCode, departureAirport) {
+  // Add flight subscription - matches ABI (payable function)
+  async addFlightSubscription(flightNumber, carrierCode, arrivalAirport, departureAirport, value = 0) {
     if (!this.contractWithSigner) {
       throw new Error("Wallet not configured for transactions");
     }
 
     try {
       // Validate input parameters
-      if (!flightNumber || !carrierCode || !departureAirport) {
+      if (!flightNumber || !carrierCode || !arrivalAirport || !departureAirport) {
         throw new Error("Invalid input parameters");
       }
 
-      // Perform the transaction
+      const txOptions = { value: ethers.utils.parseEther(value.toString()) };
+
       const tx = await this.contractWithSigner.addFlightSubscription(
-        flightNumber,
-        carrierCode,
-        departureAirport
+        String(flightNumber),
+        String(carrierCode),
+        String(arrivalAirport),
+        String(departureAirport),
+        txOptions
       );
 
-      // Wait for transaction confirmation
       const receipt = await tx.wait();
 
       return {
@@ -322,9 +334,11 @@ export class FlightBlockchainService {
     }
   }
 
-  async removeFlightSubscriptions(
+  // Remove flight subscriptions - matches ABI
+  async removeFlightSubscription(
     flightNumbers,
     carrierCodes,
+    arrivalAirports,
     departureAirports
   ) {
     if (!this.contractWithSigner) {
@@ -334,34 +348,30 @@ export class FlightBlockchainService {
     try {
       // Validate input arrays
       if (
-        !flightNumbers.length ||
-        !carrierCodes.length ||
-        !departureAirports.length ||
+        !Array.isArray(flightNumbers) ||
+        !Array.isArray(carrierCodes) ||
+        !Array.isArray(arrivalAirports) ||
+        !Array.isArray(departureAirports) ||
         flightNumbers.length !== carrierCodes.length ||
+        flightNumbers.length !== arrivalAirports.length ||
         flightNumbers.length !== departureAirports.length
       ) {
         throw new Error("Invalid or mismatched input arrays");
       }
 
       // Sanitize inputs
-      const sanitizedFlightNumbers = flightNumbers.map((fn) =>
-        fn && typeof fn === "string" ? fn : ""
-      );
-      const sanitizedCarrierCodes = carrierCodes.map((cc) =>
-        cc && typeof cc === "string" ? cc : ""
-      );
-      const sanitizedDepartureAirports = departureAirports.map((da) =>
-        da && typeof da === "string" ? da : ""
-      );
+      const sanitizedFlightNumbers = flightNumbers.map(fn => String(fn || ""));
+      const sanitizedCarrierCodes = carrierCodes.map(cc => String(cc || ""));
+      const sanitizedArrivalAirports = arrivalAirports.map(aa => String(aa || ""));
+      const sanitizedDepartureAirports = departureAirports.map(da => String(da || ""));
 
-      // Perform the transaction
       const tx = await this.contractWithSigner.removeFlightSubscription(
         sanitizedFlightNumbers,
         sanitizedCarrierCodes,
+        sanitizedArrivalAirports,
         sanitizedDepartureAirports
       );
 
-      // Wait for transaction confirmation
       const receipt = await tx.wait();
 
       return {
@@ -376,42 +386,179 @@ export class FlightBlockchainService {
     }
   }
 
-  async checkFlightExistence(flightNumber) {
+  // Check flight existence - matches ABI
+  async isFlightExist(flightNumber, carrierCode) {
     try {
-      // Validate input parameter
-      if (!flightNumber || typeof flightNumber !== "string") {
-        throw new Error("Invalid flight number");
+      if (!flightNumber || !carrierCode) {
+        throw new Error("Invalid input parameters");
       }
 
-      // Check flight existence
-      return await this.contract.isFlightExist(flightNumber);
+      return await this.contract.isFlightExist(
+        String(flightNumber),
+        String(carrierCode)
+      );
     } catch (error) {
       customLogger.error("Error checking flight existence:", error);
       throw error;
     }
   }
 
-  async checkFlightSubscription(
-    userAddress,
-    flightNumber,
-    carrierCode,
-    departureAirport
-  ) {
+  // Check user subscription - matches ABI
+  async isUserSubscribed(userAddress, flightNumber, carrierCode, arrivalAirport, departureAirport) {
     try {
-      // Validate input parameters
-      if (!userAddress || !flightNumber || !carrierCode || !departureAirport) {
+      if (!userAddress || !flightNumber || !carrierCode || !arrivalAirport || !departureAirport) {
         throw new Error("Invalid input parameters");
       }
 
-      // Check subscription status
-      return await this.contract.isFlightSubscribed(
+      return await this.contract.isUserSubscribed(
         userAddress,
-        flightNumber,
-        carrierCode,
-        departureAirport
+        String(flightNumber),
+        String(carrierCode),
+        String(arrivalAirport),
+        String(departureAirport)
       );
     } catch (error) {
-      customLogger.error("Error checking flight subscription:", error);
+      customLogger.error("Error checking user subscription:", error);
+      throw error;
+    }
+  }
+
+  // Get current flight status - matches ABI
+  async getCurrentFlightStatus(flightNumber, carrierCode) {
+    try {
+      if (!flightNumber || !carrierCode) {
+        throw new Error("Invalid input parameters");
+      }
+
+      return await this.contract.getCurrentFlightStatus(
+        String(flightNumber),
+        String(carrierCode)
+      );
+    } catch (error) {
+      customLogger.error("Error getting current flight status:", error);
+      throw error;
+    }
+  }
+
+  // Get flight dates - matches ABI
+  async getFlightDates(flightNumber, carrierCode) {
+    try {
+      if (!flightNumber || !carrierCode) {
+        throw new Error("Invalid input parameters");
+      }
+
+      return await this.contract.getFlightDates(
+        String(flightNumber),
+        String(carrierCode)
+      );
+    } catch (error) {
+      customLogger.error("Error getting flight dates:", error);
+      throw error;
+    }
+  }
+
+  // Get all flight numbers - matches ABI
+  async getAllFlightNumbers() {
+    try {
+      return await this.contract.getAllFlightNumbers();
+    } catch (error) {
+      customLogger.error("Error getting all flight numbers:", error);
+      throw error;
+    }
+  }
+
+  // Owner functions - matches ABI
+  async getOwner() {
+    try {
+      return await this.contract.getOwner();
+    } catch (error) {
+      customLogger.error("Error getting owner:", error);
+      throw error;
+    }
+  }
+
+  async transferOwnership(newOwner) {
+    if (!this.contractWithSigner) {
+      throw new Error("Wallet not configured for transactions");
+    }
+
+    try {
+      if (!newOwner || !ethers.utils.isAddress(newOwner)) {
+        throw new Error("Invalid new owner address");
+      }
+
+      const tx = await this.contractWithSigner.transferOwnership(newOwner);
+      const receipt = await tx.wait();
+
+      return {
+        success: true,
+        transactionHash: tx.hash,
+        blockNumber: receipt.blockNumber,
+      };
+    } catch (error) {
+      customLogger.error("Error transferring ownership:", error);
+      throw error;
+    }
+  }
+
+  // Oracle management functions - matches ABI
+  async authorizeOracle(oracleAddress) {
+    if (!this.contractWithSigner) {
+      throw new Error("Wallet not configured for transactions");
+    }
+
+    try {
+      if (!oracleAddress || !ethers.utils.isAddress(oracleAddress)) {
+        throw new Error("Invalid oracle address");
+      }
+
+      const tx = await this.contractWithSigner.authorizeOracle(oracleAddress);
+      const receipt = await tx.wait();
+
+      return {
+        success: true,
+        transactionHash: tx.hash,
+        blockNumber: receipt.blockNumber,
+      };
+    } catch (error) {
+      customLogger.error("Error authorizing oracle:", error);
+      throw error;
+    }
+  }
+
+  async revokeOracle(oracleAddress) {
+    if (!this.contractWithSigner) {
+      throw new Error("Wallet not configured for transactions");
+    }
+
+    try {
+      if (!oracleAddress || !ethers.utils.isAddress(oracleAddress)) {
+        throw new Error("Invalid oracle address");
+      }
+
+      const tx = await this.contractWithSigner.revokeOracle(oracleAddress);
+      const receipt = await tx.wait();
+
+      return {
+        success: true,
+        transactionHash: tx.hash,
+        blockNumber: receipt.blockNumber,
+      };
+    } catch (error) {
+      customLogger.error("Error revoking oracle:", error);
+      throw error;
+    }
+  }
+
+  async isAuthorizedOracle(oracleAddress) {
+    try {
+      if (!oracleAddress || !ethers.utils.isAddress(oracleAddress)) {
+        throw new Error("Invalid oracle address");
+      }
+
+      return await this.contract.isAuthorizedOracle(oracleAddress);
+    } catch (error) {
+      customLogger.error("Error checking oracle authorization:", error);
       throw error;
     }
   }
