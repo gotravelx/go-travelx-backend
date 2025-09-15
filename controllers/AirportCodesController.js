@@ -128,8 +128,6 @@ const getAllAirportCodes = async (req, res) => {
   }
 };
 
-
-
 export {
   createAirportCodesTable,
   createAirportCode,
