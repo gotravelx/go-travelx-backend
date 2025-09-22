@@ -1,7 +1,7 @@
 import express from "express";
 import { fetchFlightDetails } from "../controllers/UnitedApiController.js";
 import { decryptFlightData } from "../controllers/EncryptController.js";
-import { clearFlightEventTableData, createFlightEventTable,   getAllFlightDetails,   getHistoricalData,  } from "../controllers/FlightEventController.js";
+import { clearFlightEventTableData, createFlightEventTable,   getAllFlightDetails,   getHistoricalData  } from "../controllers/FlightEventController.js";
 
 
 const router = express.Router();
@@ -19,5 +19,4 @@ router.get("/get-all-flights", getAllFlightDetails);
 router.get("/create-table", createFlightEventTable);
 router.get("/clear-table", clearFlightEventTableData);
 /* ================== table route's end   =========================*/
-
 export default router;

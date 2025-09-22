@@ -1,5 +1,0 @@
-1. At the tiem of insertion i need to configure the flight sttaus chnage 
-2. ProccessFlightData i need to do that change apply compression and apply buffer to the data insert in blokchain use buffer 5 flight at time 
-   insert into blokchian then next i buffer then next soo on 
-
-3. Chnage in frontend in client side app show the whole data into flight details 

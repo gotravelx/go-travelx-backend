@@ -5,6 +5,7 @@ import { subscribeDb } from "../model/FlightSubscriptionModel.js";
 import blockchainService from "../utils/FlightBlockchainService.js";
 import customLogger from "../utils/Logger.js";
 import { startFlightStatusMonitoring } from "./CronJobController.js";
+
 import { decryptString } from "./EncryptController.js";
 
 const walletAddress = process.env.WALLET_ADDRESS;
@@ -100,7 +101,8 @@ export const clearFlightEventTableData = async () => {
 export const getHistoricalData = async (req, res) => {
   try {
     const { flightNumber } = req.params;
-    const { fromDate, toDate, carrierCode } = req.query;
+    const { fromDate, toDate, carrierCode, departureAirport, arrivalAirport } =
+      req.query;
 
     if (!flightNumber || !fromDate || !toDate || !carrierCode) {
       return res.status(400).json({
@@ -109,56 +111,26 @@ export const getHistoricalData = async (req, res) => {
       });
     }
 
-    const flightDetails = await blockchainService.getFlightDetailsByDateRange(
+    // Convert full date+time to UNIX timestamp (seconds)
+    const fromDateInTimeStamp = Math.floor(new Date(fromDate).getTime() / 1000);
+    const toDateInTimeStamp = Math.floor(new Date(toDate).getTime() / 1000);
+
+    if (isNaN(fromDateInTimeStamp) || isNaN(toDateInTimeStamp)) {
+      return res.status(400).json({
+        error: "Invalid date format. Please provide valid fromDate and toDate.",
+      });
+    }
+
+    const flightDetails = await blockchainService.getFlightHistory(
       flightNumber,
-      fromDate,
-      toDate,
-      carrierCode
+      fromDateInTimeStamp,
+      toDateInTimeStamp,
+      carrierCode,
+      arrivalAirport,
+      departureAirport
     );
 
-    const encryptionKey = process.env.ENCRYPTION_KEY;
-
-    const decryptedFlightDetails = flightDetails.map(flight => {
-      const decryptedFlight = {
-        flightNumber: flight.flightNumber,
-        scheduledDepartureDate: flight.scheduledDepartureDate,
-        carrierCode: flight.carrierCode,
-        arrivalCity: decryptString(flight.arrivalCity, encryptionKey),
-        departureCity: decryptString(flight.departureCity, encryptionKey),
-        arrivalAirport: flight.arrivalAirport,
-        departureAirport: flight.departureAirport,
-        operatingAirlineCode: decryptString(flight.operatingAirlineCode, encryptionKey),
-        arrivalGate: decryptString(flight.arrivalGate, encryptionKey),
-        departureGate: decryptString(flight.departureGate, encryptionKey),
-        flightStatus: decryptString(flight.flightStatus, encryptionKey),
-        equipmentModel: decryptString(flight.equipmentModel, encryptionKey),
-        utcTimes: {
-          actualArrival: decryptString(flight.utcTimes?.actualArrival, encryptionKey),
-          actualDeparture: decryptString(flight.utcTimes?.actualDeparture, encryptionKey),
-          estimatedArrival: decryptString(flight.utcTimes?.estimatedArrival, encryptionKey),
-          estimatedDeparture: decryptString(flight.utcTimes?.estimatedDeparture, encryptionKey),
-          scheduledArrival: decryptString(flight.utcTimes?.scheduledArrival, encryptionKey),
-          scheduledDeparture: decryptString(flight.utcTimes?.scheduledDeparture, encryptionKey),
-          arrivalDelayMinutes: decryptString(flight.utcTimes?.arrivalDelayMinutes, encryptionKey),
-          departureDelayMinutes: decryptString(flight.utcTimes?.departureDelayMinutes, encryptionKey),
-          bagClaim: decryptString(flight.utcTimes?.bagClaim, encryptionKey),
-        },
-        status: {
-          statusCode: decryptString(flight.status?.statusCode, encryptionKey),
-          statusDescription: decryptString(flight.status?.statusDescription, encryptionKey),
-          arrivalState: decryptString(flight.status?.arrivalState, encryptionKey),
-          departureState: decryptString(flight.status?.departureState, encryptionKey),
-          outUtc: decryptString(flight.status?.outUtc, encryptionKey),
-          offUtc: decryptString(flight.status?.offUtc, encryptionKey),
-          onUtc: decryptString(flight.status?.onUtc, encryptionKey),
-          inUtc: decryptString(flight.status?.inUtc, encryptionKey),
-        },
-        marketedFlightSegments: flight.marketedFlightSegments, // Keep as is or decrypt if needed
-        currentStatus: decryptString(flight.currentStatus, encryptionKey)
-      };
-
-      return decryptedFlight;
-    });
+    // ... keep your decryption logic
 
     res.json({
       flightNumber,
@@ -176,11 +148,11 @@ export const getHistoricalData = async (req, res) => {
   }
 };
 
+
 /* ========================= CLEAR TABLE DATA END ========================*/
 
 export const getAllFlightDetails = async (req, res) => {
   try {
-
     // Fetch only active subscriptions
     const subscribedFlights = await subscribeDb.findMany({
       walletAddress,
@@ -197,11 +169,9 @@ export const getAllFlightDetails = async (req, res) => {
       });
     }
 
-
     const subscriptionsData = await Promise.all(
       subscribedFlights.map(async (subscription) => {
         try {
-
           // Try to find exact match
           let flightEvent = await flightDb.findOne({
             flightNumber: subscription.flightNumber,
@@ -219,7 +189,9 @@ export const getAllFlightDetails = async (req, res) => {
           }
 
           if (!flightEvent || !flightEvent.flightData) {
-            console.warn(`No valid flight data for flight: ${subscription.flightNumber}`);
+            console.warn(
+              `No valid flight data for flight: ${subscription.flightNumber}`
+            );
             return null;
           }
 
@@ -241,7 +213,9 @@ export const getAllFlightDetails = async (req, res) => {
       })
     );
 
-    const validFlightDetails = subscriptionsData.filter((flight) => flight !== null);
+    const validFlightDetails = subscriptionsData.filter(
+      (flight) => flight !== null
+    );
 
     return res.status(200).json({
       success: true,
@@ -260,5 +234,4 @@ export const getAllFlightDetails = async (req, res) => {
   }
 };
 
-// startFlightStatusMonitoring();
- 
+startFlightStatusMonitoring();

@@ -1,6 +1,7 @@
 import ethers from "ethers";
 import dotenv from "dotenv";
 import customLogger from "./Logger.js";
+import { getBlockchainData } from "../helper/helper.js";
 
 dotenv.config();
 
@@ -65,110 +66,6 @@ export class FlightBlockchainService {
     }
   }
 
-  // Store single flight details - matches ABI
-  async storeFlightDetails(flightDetails, compressedFlightInformation) {
-    if (!this.contractWithSigner) {
-      throw new Error("Wallet not configured for transactions");
-    }
-
-    try {
-      // Validate input
-      if (!Array.isArray(flightDetails) || !compressedFlightInformation) {
-        throw new Error("Invalid input parameters");
-      }
-
-      const sanitizedFlightDetails = flightDetails.map((item) =>
-        item !== null && item !== undefined ? String(item) : ""
-      );
-      const sanitizedCompressedInfo = String(compressedFlightInformation);
-
-      let estimatedGas;
-      try {
-        estimatedGas = await this.contractWithSigner.estimateGas.storeFlightDetails(
-          sanitizedFlightDetails,
-          sanitizedCompressedInfo
-        );
-      } catch (estimateError) {
-        customLogger.error("Gas estimation failed:", estimateError);
-        throw new Error(
-          "Transaction would fail. Check contract requirements and input data."
-        );
-      }
-
-      const gasLimit = estimatedGas.mul(120).div(100);
-
-      const tx = await this.contractWithSigner.storeFlightDetails(
-        sanitizedFlightDetails,
-        sanitizedCompressedInfo,
-        { gasLimit }
-      );
-
-      const receipt = await tx.wait();
-
-      return {
-        success: true,
-        transactionHash: tx.hash,
-        blockNumber: receipt.blockNumber,
-      };
-    } catch (error) {
-      customLogger.error("Error storing flight details:", error.message);
-      throw error;
-    }
-  }
-
-  // Store multiple flight details - matches ABI
-  async storeMultipleFlightDetails(flightInputs) {
-    if (!this.contractWithSigner) {
-      throw new Error("Wallet not configured for transactions");
-    }
-
-    try {
-      // Validate input
-      if (!Array.isArray(flightInputs) || flightInputs.length === 0) {
-        throw new Error("Invalid flight inputs array");
-      }
-
-      // Sanitize flight inputs
-      const sanitizedFlightInputs = flightInputs.map(input => ({
-        flightDetails: input.flightDetails.map(detail => 
-          detail !== null && detail !== undefined ? String(detail) : ""
-        ),
-        compressedFlightInformation: String(input.compressedFlightInformation || "")
-      }));
-
-      let estimatedGas;
-      try {
-        estimatedGas = await this.contractWithSigner.estimateGas.storeMultipleFlightDetails(
-          sanitizedFlightInputs
-        );
-      } catch (estimateError) {
-        customLogger.error("Gas estimation failed:", estimateError);
-        throw new Error(
-          "Transaction would fail. Check contract requirements and input data."
-        );
-      }
-
-      const gasLimit = estimatedGas.mul(120).div(100);
-
-      const tx = await this.contractWithSigner.storeMultipleFlightDetails(
-        sanitizedFlightInputs,
-        { gasLimit }
-      );
-
-      const receipt = await tx.wait();
-
-      return {
-        success: true,
-        transactionHash: tx.hash,
-        blockNumber: receipt.blockNumber,
-        storedCount: sanitizedFlightInputs.length,
-      };
-    } catch (error) {
-      customLogger.error("Error storing multiple flight details:", error.message);
-      throw error;
-    }
-  }
-
   // Update flight status - matches ABI
   async updateFlightStatus(
     flightNumber,
@@ -205,14 +102,15 @@ export class FlightBlockchainService {
 
       let estimatedGas;
       try {
-        estimatedGas = await this.contractWithSigner.estimateGas.updateFlightStatus(
-          sanitizedFlightNumber,
-          sanitizedFlightOriginateDate,
-          sanitizedCarrierCode,
-          sanitizedArrivalStatus,
-          sanitizedDepartureStatus,
-          sanitizedLegStatus
-        );
+        estimatedGas =
+          await this.contractWithSigner.estimateGas.updateFlightStatus(
+            sanitizedFlightNumber,
+            sanitizedFlightOriginateDate,
+            sanitizedCarrierCode,
+            sanitizedArrivalStatus,
+            sanitizedDepartureStatus,
+            sanitizedLegStatus
+          );
       } catch (estimateError) {
         customLogger.error("Gas estimation failed:", estimateError);
         throw new Error(
@@ -256,13 +154,18 @@ export class FlightBlockchainService {
     departureAirport
   ) {
     try {
-      if (!flightNumber || !fromDate || !toDate || !carrierCode || !arrivalAirport || !departureAirport) {
+      if (
+        !flightNumber ||
+        !fromDate ||
+        !toDate ||
+        !carrierCode ||
+        !arrivalAirport ||
+        !departureAirport
+      ) {
         throw new Error("Invalid input parameters");
       }
 
-      const sanitizedFromDateInTimeStamp = typeof fromDateInTimeStamp === 'number' 
-        ? fromDateInTimeStamp 
-        : new Date(fromDate).getTime() / 1000; // Convert to Unix timestamp
+     const sanitizedFromDateInTimeStamp = Number(fromDateInTimeStamp);
 
       const flightHistory = await this.contract.getFlightHistory(
         String(flightNumber),
@@ -295,34 +198,156 @@ export class FlightBlockchainService {
       }));
     } catch (error) {
       customLogger.error("Error fetching flight history:", error);
+      console.log("Error", error);
+      
       throw error;
     }
   }
 
-  // Add flight subscription - matches ABI (payable function)
-  async addFlightSubscription(flightNumber, carrierCode, arrivalAirport, departureAirport, value = 0) {
+  // Store single flight details - matches ABI with enhanced error handling
+  async storeFlightInBlockchain(flightStatusResp) {
     if (!this.contractWithSigner) {
       throw new Error("Wallet not configured for transactions");
     }
 
+    console.log(
+      this.contractWithSigner.interface.getFunction("storeFlightDetails").inputs
+    );
+
     try {
-      // Validate input parameters
-      if (!flightNumber || !carrierCode || !arrivalAirport || !departureAirport) {
-        throw new Error("Invalid input parameters");
+      // Get blockchain data
+      const blockchainData = await getBlockchainData(flightStatusResp);
+
+      if (!blockchainData.success) {
+        throw new Error(`Data preparation failed: ${blockchainData.error}`);
       }
 
-      const txOptions = { value: ethers.utils.parseEther(value.toString()) };
+      // Validate the prepared data
+      const { flightDetailsArray, compressedFlightData } = blockchainData;
 
-      const tx = await this.contractWithSigner.addFlightSubscription(
-        String(flightNumber),
-        String(carrierCode),
-        String(arrivalAirport),
-        String(departureAirport),
-        txOptions
+      console.log(
+        "compressedFlightData",
+        typeof compressedFlightData,
+        compressedFlightData.substring(0, 1000)
       );
+
+      console.log("compressedFlightData", compressedFlightData);
+
+      if (!flightDetailsArray || !Array.isArray(flightDetailsArray)) {
+        throw new Error("Invalid flight details array");
+      }
+
+      if (flightDetailsArray.length !== 10) {
+        throw new Error(
+          `Expected 10 flight details, got ${flightDetailsArray.length}`
+        );
+      }
+
+      // Check for empty required fields
+      const requiredFields = [0, 1, 2, 3, 4]; // flightNumber, carrierCode, arrivalAirport, departureAirport
+      for (const index of requiredFields) {
+        if (
+          !flightDetailsArray[index] ||
+          flightDetailsArray[index].trim() === ""
+        ) {
+          const fieldNames = [
+            "flightNumber",
+            "carrierCode",
+            "flightOriginateDate",
+            "arrivalAirport",
+            "departureAirport",
+          ];
+          throw new Error(
+            `Required field ${fieldNames[index] || `index ${index}`} is empty`
+          );
+        }
+      }
+
+      customLogger.info("Flight details for blockchain:", {
+        flightNumber: flightDetailsArray[0],
+        carrierCode: flightDetailsArray[1],
+        originateDate: flightDetailsArray[2],
+        arrivalAirport: flightDetailsArray[3],
+        departureAirport: flightDetailsArray[4],
+        compressedDataLength: compressedFlightData?.length || 0,
+      });
+
+      const tx = await this.contractWithSigner.storeFlightDetails(
+        flightDetailsArray,
+        compressedFlightData
+      );
+
+      customLogger.info(`Transaction sent: ${tx.hash}`);
 
       const receipt = await tx.wait();
 
+      customLogger.info(
+        `Transaction confirmed in block ${receipt.blockNumber}`
+      );
+
+      return {
+        success: true,
+        transactionHash: tx.hash,
+        blockNumber: receipt.blockNumber,
+        gasUsed: receipt.gasUsed?.toString(),
+      };
+    } catch (error) {
+      customLogger.error("Error storing flight details:", error);
+      console.log("Error", error);
+
+      let errorMessage = error.message || "Unknown error";
+
+      if (errorMessage.includes("insufficient funds")) {
+        errorMessage = "Insufficient funds to pay for gas";
+      } else if (errorMessage.includes("nonce too low")) {
+        errorMessage = "Transaction nonce too low - please try again";
+      } else if (errorMessage.includes("replacement transaction underpriced")) {
+        errorMessage = "Transaction underpriced - increase gas price";
+      } else if (errorMessage.includes("execution reverted")) {
+        errorMessage = `Smart contract reverted: ${errorMessage}`;
+      }
+
+      throw new Error(errorMessage);
+    }
+  }
+
+  // Add flight subscription - matches ABI (payable function)
+  async addSubscription(
+    flightNumber,
+    carrierCode,
+    departureAirport,
+    arrivalAirport
+  ) {
+    if (!this.contractWithSigner) {
+      throw new Error("Wallet not configured for transactions");
+    }
+
+    console.log(
+      "Params:",
+      typeof flightNumber,
+      typeof carrierCode,
+      typeof departureAirport,
+      typeof arrivalAirport
+    );
+
+
+    console.log("Params:", flightNumber, carrierCode, departureAirport, arrivalAirport);
+    
+    console.log("add flight subscription called");
+    this.isFlightExist(flightNumber, carrierCode).then((exists) => {
+      console.log("Flight exists:", exists);
+      
+    });
+
+    try {
+      const tx = await this.contractWithSigner.addFlightSubscription(
+        flightNumber,
+        carrierCode,
+        arrivalAirport,
+        departureAirport,
+      );
+
+      const receipt = await tx.wait();
       return {
         success: true,
         transactionHash: tx.hash,
@@ -330,11 +355,12 @@ export class FlightBlockchainService {
       };
     } catch (error) {
       customLogger.error("Error adding flight subscription:", error);
+      console.log(error);
+
       throw error;
     }
   }
 
-  // Remove flight subscriptions - matches ABI
   async removeFlightSubscription(
     flightNumbers,
     carrierCodes,
@@ -360,10 +386,16 @@ export class FlightBlockchainService {
       }
 
       // Sanitize inputs
-      const sanitizedFlightNumbers = flightNumbers.map(fn => String(fn || ""));
-      const sanitizedCarrierCodes = carrierCodes.map(cc => String(cc || ""));
-      const sanitizedArrivalAirports = arrivalAirports.map(aa => String(aa || ""));
-      const sanitizedDepartureAirports = departureAirports.map(da => String(da || ""));
+      const sanitizedFlightNumbers = flightNumbers.map((fn) =>
+        String(fn || "")
+      );
+      const sanitizedCarrierCodes = carrierCodes.map((cc) => String(cc || ""));
+      const sanitizedArrivalAirports = arrivalAirports.map((aa) =>
+        String(aa || "")
+      );
+      const sanitizedDepartureAirports = departureAirports.map((da) =>
+        String(da || "")
+      );
 
       const tx = await this.contractWithSigner.removeFlightSubscription(
         sanitizedFlightNumbers,
@@ -392,7 +424,7 @@ export class FlightBlockchainService {
       if (!flightNumber || !carrierCode) {
         throw new Error("Invalid input parameters");
       }
-
+    
       return await this.contract.isFlightExist(
         String(flightNumber),
         String(carrierCode)
@@ -403,10 +435,44 @@ export class FlightBlockchainService {
     }
   }
 
-  // Check user subscription - matches ABI
-  async isUserSubscribed(userAddress, flightNumber, carrierCode, arrivalAirport, departureAirport) {
+  async waitForTransaction(txHash, confirmations = 1, timeoutMs = 120000) {
     try {
-      if (!userAddress || !flightNumber || !carrierCode || !arrivalAirport || !departureAirport) {
+      if (!txHash) throw new Error("Missing txHash");
+      const start = Date.now();
+      // provider.waitForTransaction resolves to receipt or null on timeout
+      const receipt = await this.provider.waitForTransaction(
+        txHash,
+        confirmations,
+        timeoutMs
+      );
+      if (!receipt) {
+        throw new Error(
+          `Transaction ${txHash} not mined within ${timeoutMs}ms`
+        );
+      }
+      return receipt;
+    } catch (error) {
+      customLogger.error(`waitForTransaction error for ${txHash}:`, error);
+      throw error;
+    }
+  }
+
+  // Check user subscription - matches ABI
+  async isUserSubscribed(
+    userAddress,
+    flightNumber,
+    carrierCode,
+    arrivalAirport,
+    departureAirport
+  ) {
+    try {
+      if (
+        !userAddress ||
+        !flightNumber ||
+        !carrierCode ||
+        !arrivalAirport ||
+        !departureAirport
+      ) {
         throw new Error("Invalid input parameters");
       }
 

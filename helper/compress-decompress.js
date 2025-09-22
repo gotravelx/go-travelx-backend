@@ -1,6 +1,6 @@
-const zlib = require("zlib");
+import zlib from "zlib";
 
-export const getCompressedFlightData = (flightData) => {
+export const getCompressedFlightData = async (flightData) => {
   try {
     if (!flightData) {
       throw new Error("No flight data provided for compression");
@@ -14,7 +14,7 @@ export const getCompressedFlightData = (flightData) => {
   }
 };
 
-export const getDecompressedFlightData = (compressedData) => {
+export const getDecompressedFlightData = async (compressedData) => {
   try {
     if (!compressedData) {
       throw new Error("No compressed data provided for decompression");

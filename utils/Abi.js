@@ -56,11 +56,6 @@ const ContractAbi = [
     },
     {
         "inputs": [],
-        "name": "RateLimitExceeded",
-        "type": "error"
-    },
-    {
-        "inputs": [],
         "name": "ReentrancyGuard",
         "type": "error"
     },
@@ -264,49 +259,17 @@ const ContractAbi = [
         "type": "event"
     },
     {
-        "anonymous": false,
         "inputs": [
             {
-                "indexed": true,
                 "internalType": "address",
                 "name": "oracle",
                 "type": "address"
             }
         ],
-        "name": "OracleAuthorized",
-        "type": "event"
-    },
-    {
-        "anonymous": false,
-        "inputs": [
-            {
-                "indexed": true,
-                "internalType": "address",
-                "name": "oracle",
-                "type": "address"
-            }
-        ],
-        "name": "OracleRevoked",
-        "type": "event"
-    },
-    {
-        "anonymous": false,
-        "inputs": [
-            {
-                "indexed": true,
-                "internalType": "address",
-                "name": "previousOwner",
-                "type": "address"
-            },
-            {
-                "indexed": true,
-                "internalType": "address",
-                "name": "newOwner",
-                "type": "address"
-            }
-        ],
-        "name": "OwnershipTransferred",
-        "type": "event"
+        "name": "AddAuthorizeOracle",
+        "outputs": [],
+        "stateMutability": "nonpayable",
+        "type": "function"
     },
     {
         "inputs": [
@@ -337,19 +300,6 @@ const ContractAbi = [
         "type": "function"
     },
     {
-        "inputs": [
-            {
-                "internalType": "address",
-                "name": "oracle",
-                "type": "address"
-            }
-        ],
-        "name": "authorizeOracle",
-        "outputs": [],
-        "stateMutability": "nonpayable",
-        "type": "function"
-    },
-    {
         "inputs": [],
         "name": "getAllFlightNumbers",
         "outputs": [
@@ -357,30 +307,6 @@ const ContractAbi = [
                 "internalType": "string[]",
                 "name": "",
                 "type": "string[]"
-            }
-        ],
-        "stateMutability": "view",
-        "type": "function"
-    },
-    {
-        "inputs": [
-            {
-                "internalType": "string",
-                "name": "flightNumber",
-                "type": "string"
-            },
-            {
-                "internalType": "string",
-                "name": "carrierCode",
-                "type": "string"
-            }
-        ],
-        "name": "getCurrentFlightStatus",
-        "outputs": [
-            {
-                "internalType": "string",
-                "name": "",
-                "type": "string"
             }
         ],
         "stateMutability": "view",
@@ -719,19 +645,6 @@ const ContractAbi = [
     {
         "inputs": [
             {
-                "internalType": "address",
-                "name": "newOwner",
-                "type": "address"
-            }
-        ],
-        "name": "transferOwnership",
-        "outputs": [],
-        "stateMutability": "nonpayable",
-        "type": "function"
-    },
-    {
-        "inputs": [
-            {
                 "internalType": "string",
                 "name": "flightNumber",
                 "type": "string"
@@ -744,6 +657,16 @@ const ContractAbi = [
             {
                 "internalType": "string",
                 "name": "carrierCode",
+                "type": "string"
+            },
+            {
+                "internalType": "string",
+                "name": "arrivalAirport",
+                "type": "string"
+            },
+            {
+                "internalType": "string",
+                "name": "departureAirport",
                 "type": "string"
             },
             {
@@ -767,6 +690,5 @@ const ContractAbi = [
         "stateMutability": "nonpayable",
         "type": "function"
     }
-];
-
+]
 export default ContractAbi;
