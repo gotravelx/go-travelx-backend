@@ -279,6 +279,8 @@ export const getBlockchainData = async (flightStatusResp) => {
       currentFlightStatus: currentFlightStatus,
     };
 
+    console.log("carrierCode ...",carrierCode);
+    
     customLogger.info("Successfully prepared blockchain data", {
       flightNumber,
       carrierCode: flightCarrierCode,
@@ -315,6 +317,11 @@ export const extractKeyFlightInfo = (flightData) => {
       throw new Error("Invalid flight data structure");
     }
 
+    const carrierCode =
+      operationalSegment.OperatingAirlineCode ||
+      operationalSegment.OperatingAirline?.IATACode ||
+      "";
+
     if (!operationalSegment) {
       logger.error(
         "[EXTRACT FLIGHT INFO] Operational segment not found for flight:",
@@ -340,7 +347,7 @@ export const extractKeyFlightInfo = (flightData) => {
       // Basic Flight Info
       flightNumber: flight.FlightNumber,
       departureDate: flight.DepartureDate,
-
+      carrierCode: carrierCode,
       // Airports
       departureAirport: {
         code: operationalSegment?.DepartureAirport?.IATACode,

@@ -6,9 +6,9 @@
   "type": "module",
   "scripts": {
     "test": "jest --coverage",
-    "start": "NODE_ENV=prod node app.js",
-    "dev": "NODE_ENV=dev nodemon app.js",
-    "local": "NODE_ENV=local nodemon app.js"
+    "start": "NODE_ENV=prod VERSION=v1 node app.js",
+    "local": "NODE_ENV=local VERSION=v1 DYNAMO_ENDPOINT=http://localhost:8000 nodemon app.js",
+    "dev": "NODE_ENV=dev VERSION=v1 DYNAMO_ENDPOINT=http://localhost:8000 nodemon app.js"
   },
   "keywords": [],
   "author": "",
@@ -26,6 +26,7 @@
     "ethers": "^5.7.2",
     "express": "^4.21.2",
     "express-validator": "^7.2.1",
+    "helmet": "^6.1.2",
     "https": "^1.0.0",
     "jsonwebtoken": "^9.0.2",
     "loglevel": "^1.9.2",

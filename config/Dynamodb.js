@@ -8,6 +8,7 @@ class DynamoDBConnection {
     this.dynamoClient = null;
     this.isConnected = false;
   }
+
   async connect() {
     if (this.isConnected) {
       return {
@@ -17,28 +18,29 @@ class DynamoDBConnection {
     }
 
     try {
-      logger.info("Connecting to DynamoDB...");
+      const isLocal = process.env.NODE_ENV === "local";
 
-      console.log("AWS_REGION:", process.env.AWS_REGION);
-      console.log("AWS_ACCESS_KEY_ID:", process.env.AWS_ACCESS_KEY_ID);
-      console.log("AWS_SECRET_ACCESS_KEY:", process.env.AWS_SECRET_ACCESS_KEY);
+      const config = isLocal
+        ? {
+            region: process.env.AWS_REGION || "us-east-1",
+            endpoint: process.env.DYNAMO_ENDPOINT || "http://localhost:8000",
+            accessKeyId: "dummy",
+            secretAccessKey: "dummy",
+          }
+        : {
+            region: process.env.AWS_REGION,
+            accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+            secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+          };
 
-      const config = {
-        region: process.env.AWS_REGION,
-        accessKeyId: process.env.AWS_ACCESS_KEY_ID,
-        secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
-      };
+      logger.info(
+        `Connecting to DynamoDB with config: ${JSON.stringify(config)}`
+      );
 
-      // ✅ Add local endpoint if defined in env
-      if (process.env.DYNAMO_ENDPOINT) {
-        config.endpoint = process.env.DYNAMO_ENDPOINT;
-        logger.info(
-          `Using local DynamoDB endpoint: ${process.env.DYNAMO_ENDPOINT}`
-        );
-      }
-
+      // Update global AWS config (v2 SDK)
       AWS.config.update(config);
 
+      // Create clients
       this.documentClient = new AWS.DynamoDB.DocumentClient(config);
       this.dynamoClient = new AWS.DynamoDB(config);
 
@@ -64,17 +66,9 @@ class DynamoDBConnection {
     try {
       await this.dynamoClient.listTables({ Limit: 1 }).promise();
     } catch (error) {
-      try {
-        await this.documentClient
-          .scan({
-            TableName: "test-connection-" + Date.now(),
-            Limit: 1,
-          })
-          .promise();
-      } catch (testError) {
-        if (testError.code !== "ResourceNotFoundException") {
-          throw testError;
-        }
+      // ignore ResourceNotFound for test table
+      if (error.code !== "ResourceNotFoundException") {
+        throw error;
       }
     }
   }
@@ -102,20 +96,11 @@ class DynamoDBConnection {
 }
 
 const dynamoDBConnection = new DynamoDBConnection();
-export const connectDynamoDB = async () => {
-  return await dynamoDBConnection.connect();
-};
 
-export const getDocumentClient = () => {
-  return dynamoDBConnection.getDocumentClient();
-};
-
-export const getDynamoClient = () => {
-  return dynamoDBConnection.getDynamoClient();
-};
-
-export const disconnectDynamoDB = async () => {
+export const connectDynamoDB = async () => await dynamoDBConnection.connect();
+export const getDocumentClient = () => dynamoDBConnection.getDocumentClient();
+export const getDynamoClient = () => dynamoDBConnection.getDynamoClient();
+export const disconnectDynamoDB = async () =>
   await dynamoDBConnection.disconnect();
-};
 
 export default dynamoDBConnection;

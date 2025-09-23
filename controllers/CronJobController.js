@@ -25,7 +25,7 @@ const validTransitions = {
 
 export const startFlightStatusMonitoring = () => {
   // Run every 5 minutes
-  const job = scheduleJob.scheduleJob("*/5 * * * *", async () => {
+  const job = scheduleJob.scheduleJob("*/1 * * * *", async () => {
     try {
       customLogger.info("Starting flight status monitoring job...");
       // Process each unique flight (group by flightNumber + departureDate)
@@ -37,7 +37,7 @@ export const startFlightStatusMonitoring = () => {
 
       customLogger.info("Flight status monitoring job completed successfully");
     } catch (error) {
-      customLogger.error("Error in flight status monitoring job:", error);
+      customLogger.error(`Error in flight status monitoring job: ${error}` );
     }
   });
 

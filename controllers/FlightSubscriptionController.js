@@ -21,6 +21,9 @@ import { getCompressedFlightData } from "../helper/compress-decompress.js";
 const encryptionKey = process.env.ENCRYPTION_KEY;
 const walletAddress = process.env.WALLET_ADDRESS;
 
+console.log(`NODE ENV ..... *******************************`,process.env.NODE_ENV);
+
+
 /* ====================== Create Flight Subscription Api =============================== */
 
 export const createFlightSubscriptionTable = async (req, res) => {
@@ -237,8 +240,6 @@ export const addFlightSubscription = async (req, res) => {
       const existingFlightEvent = await getFlightEventByNumber(
         flightNumber,
       );
-
-      console.log("Existing Flight:", existingFlightEvent);
       
 
       if (!existingFlightEvent) {
@@ -248,7 +249,7 @@ export const addFlightSubscription = async (req, res) => {
 
         // Check if flight exists in blockchain
         const isFlightExistInBlockchain =
-          await blockchainService.isFlightExist(flightNumber,carrierCode);
+          await blockchainService.isFlightExist(flightNumber, flightDetails.carrierCode);
 
         if (!isFlightExistInBlockchain) {
           // Prepare and insert flight data to blockchain
@@ -268,7 +269,7 @@ export const addFlightSubscription = async (req, res) => {
                   // Insert flight event to database
         flightEventResult = await insertFlightEvent(
           flightNumber,
-          carrierCode,
+          flightDetails.carrierCode,
           departureDate,
           departureAirport,
           arrivalAirport,

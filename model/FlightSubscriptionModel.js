@@ -202,8 +202,9 @@ export const isFlightSubscribed = async (walletAddress, flightNumber) => {
     const filter = { walletAddress, flightNumber };
 
     const exists = await subscribeDb.findOne(filter);
+    if(!exists) return { success: true, isSubscribed:false };
 
-    return { success: true, isSubscribed: exists.isSubscriptionActive };
+    return { success: true, isSubscribed:true, item: exists };
   } catch (error) {
     console.error("[DYNAMODB] Error checking flight subscription existence", {
       walletAddress,
