@@ -1,7 +1,8 @@
-import ethers from "ethers";
+import ethers, { logger } from "ethers";
 import dotenv from "dotenv";
 import customLogger from "./Logger.js";
-import { getBlockchainData } from "../helper/helper.js";
+import { extractKeyFlightInfo, getBlockchainData } from "../helper/helper.js";
+import { getDecompressedFlightData } from "../helper/compress-decompress.js";
 
 dotenv.config();
 
@@ -147,13 +148,13 @@ export class FlightBlockchainService {
   async getFlightHistory(
     flightNumber,
     fromDate,
-    fromDateInTimeStamp,
     toDate,
     carrierCode,
     arrivalAirport,
     departureAirport
   ) {
     try {
+      // Validate input
       if (
         !flightNumber ||
         !fromDate ||
@@ -165,9 +166,43 @@ export class FlightBlockchainService {
         throw new Error("Invalid input parameters");
       }
 
-     const sanitizedFromDateInTimeStamp = Number(fromDateInTimeStamp);
+      console.log(
+        "Contract file function parameters",
+        "FlightNumber:",
+        flightNumber,
+        "FromDate:",
+        fromDate,
+        "ToDate:",
+        toDate,
+        "CarrierCode:",
+        carrierCode,
+        "DepartureAirport:",
+        departureAirport,
+        "ArrivalAirport:",
+        arrivalAirport
+      );
 
-      const flightHistory = await this.contract.getFlightHistory(
+      let isAlreadySubscribedBlockchain = await this.isUserSubscribed(
+        this.walletAddress,
+        String(flightNumber),
+        String(carrierCode),
+        String(arrivalAirport),
+        String(departureAirport)
+      );
+
+      // If subscription check says true but contract call fails, there's a mismatch
+      if (!isAlreadySubscribedBlockchain) {
+        throw new Error(
+          `Wallet ${this.walletAddress} is not subscribed to flight ${flightNumber} (${carrierCode}) from ${departureAirport} to ${arrivalAirport}`
+        );
+      }
+
+      // Convert dates to seconds timestamps for the contract
+      const sanitizedFromDateInTimeStamp = Math.floor(
+        new Date(fromDate).getTime() / 1000
+      );
+
+      const flightHistory = await this.contractWithSigner.getFlightHistory(
         String(flightNumber),
         String(fromDate),
         sanitizedFromDateInTimeStamp,
@@ -177,33 +212,50 @@ export class FlightBlockchainService {
         String(departureAirport)
       );
 
-      return flightHistory.map((flight) => ({
-        identifiers: {
-          carrierCode: flight.identifiers.carrierCode,
-          flightNumber: flight.identifiers.flightNumber,
-          flightOriginateDate: flight.identifiers.flightOriginateDate,
-        },
-        airports: {
-          arrivalAirport: flight.airports.arrivalAirport,
-          departureAirport: flight.airports.departureAirport,
-          arrivalCity: flight.airports.arrivalCity,
-          departureCity: flight.airports.departureCity,
-        },
-        statuses: {
-          arrivalStatus: flight.statuses.arrivalStatus,
-          departureStatus: flight.statuses.departureStatus,
-          legStatus: flight.statuses.legStatus,
-        },
-        compressedFlightInformation: flight.compressedFlightInformation,
-      }));
+      const decompressedFlightDataArray = await Promise.all(
+        flightHistory.map(async (flight) => {
+          return await getDecompressedFlightData(
+            flight.compressedFlightInformation
+          );
+        })
+      );
+
+      const flightDataArray = decompressedFlightDataArray.map((flightInfo) => {
+        return extractKeyFlightInfo({ flightData: flightInfo });
+      });
+
+      return flightDataArray;
     } catch (error) {
+      console.error("Full error details:", {
+        message: error.message,
+        errorName: error.errorName,
+        args: error.args,
+        contractAddress: error.address,
+      });
+
+      if (error.errorName === "NotSubscribed") {
+        // Log the exact parameters that failed
+        console.error("NotSubscribed error with parameters:", {
+          flightNumber: String(flightNumber),
+          carrierCode: String(carrierCode),
+          arrivalAirport: String(arrivalAirport),
+          departureAirport: String(departureAirport),
+          walletAddress: this.walletAddress,
+        });
+
+        throw new Error(
+          `Wallet ${this.walletAddress} is not subscribed to flight ${flightNumber} (${carrierCode}) from ${departureAirport} to ${arrivalAirport} (on-chain check)`
+        );
+      } else if (error.errorName === "FlightNotFound") {
+        throw new Error("Flight not found on-chain");
+      } else if (error.errorName === "DateRangeExceeded") {
+        throw new Error("Date range exceeds allowed limit");
+      }
+
       customLogger.error("Error fetching flight history:", error);
-      console.log("Error", error);
-      
       throw error;
     }
   }
-
   // Store single flight details - matches ABI with enhanced error handling
   async storeFlightInBlockchain(flightStatusResp) {
     if (!this.contractWithSigner) {
@@ -330,13 +382,17 @@ export class FlightBlockchainService {
       typeof arrivalAirport
     );
 
+    console.log(
+      "Params:",
+      flightNumber,
+      carrierCode,
+      departureAirport,
+      arrivalAirport
+    );
 
-    console.log("Params:", flightNumber, carrierCode, departureAirport, arrivalAirport);
-    
     console.log("add flight subscription called");
     this.isFlightExist(flightNumber, carrierCode).then((exists) => {
       console.log("Flight exists:", exists);
-      
     });
 
     try {
@@ -344,7 +400,7 @@ export class FlightBlockchainService {
         flightNumber,
         carrierCode,
         arrivalAirport,
-        departureAirport,
+        departureAirport
       );
 
       const receipt = await tx.wait();
@@ -424,7 +480,7 @@ export class FlightBlockchainService {
       if (!flightNumber || !carrierCode) {
         throw new Error("Invalid input parameters");
       }
-    
+
       return await this.contract.isFlightExist(
         String(flightNumber),
         String(carrierCode)

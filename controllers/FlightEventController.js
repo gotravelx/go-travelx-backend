@@ -111,33 +111,22 @@ export const getHistoricalData = async (req, res) => {
       });
     }
 
-    // Convert full date+time to UNIX timestamp (seconds)
-    const fromDateInTimeStamp = Math.floor(new Date(fromDate).getTime() / 1000);
-    const toDateInTimeStamp = Math.floor(new Date(toDate).getTime() / 1000);
-
-    if (isNaN(fromDateInTimeStamp) || isNaN(toDateInTimeStamp)) {
-      return res.status(400).json({
-        error: "Invalid date format. Please provide valid fromDate and toDate.",
-      });
-    }
-
+    // FIXED: Pass parameters in correct order matching the service method
     const flightDetails = await blockchainService.getFlightHistory(
       flightNumber,
-      fromDateInTimeStamp,
-      toDateInTimeStamp,
-      carrierCode,
-      arrivalAirport,
-      departureAirport
+      fromDate,           // string
+      toDate,            // string
+      carrierCode,       // string
+      arrivalAirport,    // string
+      departureAirport   // string
     );
-
-    // ... keep your decryption logic
 
     res.json({
       flightNumber,
       fromDate,
       toDate,
       carrierCode,
-      flightDetails: decryptedFlightDetails,
+      flightDetails: flightDetails,
     });
   } catch (error) {
     customLogger.error("Error fetching flight details:", error);
@@ -147,7 +136,6 @@ export const getHistoricalData = async (req, res) => {
     });
   }
 };
-
 
 /* ========================= CLEAR TABLE DATA END ========================*/
 

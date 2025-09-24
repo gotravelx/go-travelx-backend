@@ -147,13 +147,13 @@ export const getBlockchainData = async (flightStatusResp) => {
         "Failed to compress flight data:",
         compressionError.message
       );
-      // Continue without compressed data - set to empty string
+      
       compressedFlightData = "";
     }
 
     // Extract individual values with proper validation and sanitization
     const flightNumber = String(flight.FlightNumber || "").trim();
-    const flightCarrierCode = String(carrierCode || "").trim();
+    const flightCarrierCode = "UA";
     const rawDate = flight.FlightOriginationDate || flight.DepartureDate || "";
     const originateDate = rawDate ? dayjs(rawDate).format("YYYY-MM-DD") : "";
 
@@ -171,29 +171,10 @@ export const getBlockchainData = async (flightStatusResp) => {
       operationalSegment.DepartureAirport?.IATACode || ""
     ).trim();
 
-    console.log(arrivalStatus, departureStatus, legStatus);
-
-    // Convert status objects to strings, handling potential undefined values
     const arrivalStatusStr = String(arrivalStatus?.Code || "").trim();
     const departureStatusStr = String(departureStatus?.Code || "").trim();
     const legStatusStr = String(legStatus?.Code || "").trim();
 
-    customLogger.info("Originate date raw/normalized", {
-      rawDate,
-    });
-
-    console.log(
-      "Flight Data Extraction:",
-      {
-        flightNumber,
-        flightCarrierCode,
-      },
-      typeof originateDate
-    );
-
-    console.log("legStatusStr", legStatusStr), typeof originateDate;
-
-    // Log extracted data for debugging
     customLogger.info("Extracted flight data:", {
       flightNumber,
       flightCarrierCode,
@@ -207,7 +188,6 @@ export const getBlockchainData = async (flightStatusResp) => {
       legStatusStr,
     });
 
-    // Add validation for required blockchain fields
     if (
       !flightNumber ||
       !flightCarrierCode ||
@@ -317,10 +297,10 @@ export const extractKeyFlightInfo = (flightData) => {
       throw new Error("Invalid flight data structure");
     }
 
-    const carrierCode =
-      operationalSegment.OperatingAirlineCode ||
-      operationalSegment.OperatingAirline?.IATACode ||
-      "";
+    // const carrierCode =
+    //   operationalSegment.OperatingAirlineCode ||
+    //   operationalSegment.OperatingAirline?.IATACode ||
+    //   "";
 
     if (!operationalSegment) {
       logger.error(
@@ -347,7 +327,7 @@ export const extractKeyFlightInfo = (flightData) => {
       // Basic Flight Info
       flightNumber: flight.FlightNumber,
       departureDate: flight.DepartureDate,
-      carrierCode: carrierCode,
+      carrierCode: "UA",
       // Airports
       departureAirport: {
         code: operationalSegment?.DepartureAirport?.IATACode,
