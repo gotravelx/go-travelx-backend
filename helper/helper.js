@@ -455,7 +455,7 @@ export const checkFlightSubscription = async (walletAddress, flightNumber) => {
       flightNumber: String(flightNumber),
     });
 
-    return !!subscription;
+    return subscription.isSubscriptionActive;
   } catch (error) {
     console.error("[SUBSCRIPTION CHECK] Error:", error);
     return false;

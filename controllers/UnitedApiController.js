@@ -150,8 +150,6 @@ export const fetchFlightDetails = async (req, res) => {
     let isSubscribed = false;
     if (walletAddress) {
       isSubscribed = await checkFlightSubscription(walletAddress, flightNumber);
-      const result = await isFlightSubscribed(walletAddress, flightNumber);
-      isSubscribed = result.isSubscribed;
     }
 
     const response = {

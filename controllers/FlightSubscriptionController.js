@@ -610,9 +610,6 @@ export const unsubscribeFlight = async (req, res) => {
           flightNumber,
         });
 
-        console.log("Checking subscription:", subscription);
-        
-
         if (subscription && subscription.isSubscriptionActive) {
           existingSubscriptions.push({
             flightNumber,
