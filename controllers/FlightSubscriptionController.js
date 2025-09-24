@@ -14,14 +14,9 @@ import blockchainService from "../utils/FlightBlockchainService.js";
 import customLogger from "../utils/Logger.js";
 import { fetchFlightData } from "./UnitedApiController.js";
 import { flightDb } from "../model/FlightEventModel.js";
-
-const encryptionKey = process.env.ENCRYPTION_KEY;
+import logger from "../utils/Logger.js";;
 const walletAddress = process.env.WALLET_ADDRESS;
 
-console.log(
-  `NODE ENV ..... *******************************`,
-  process.env.NODE_ENV
-);
 
 /* ====================== Create Flight Subscription Api =============================== */
 
@@ -29,7 +24,7 @@ export const createFlightSubscriptionTable = async (req, res) => {
   const dynamoClient = getDynamoClient();
   try {
     await dynamoClient.createTable(FlightSubscriptionModel).promise();
-    console.log("[DYNAMODB] FlightSubscriptions table created successfully.");
+    logger.info("INFO: [DYNAMODB] FlightSubscriptions table created successfully.");
 
     return res.status(201).json({
       success: true,
@@ -38,8 +33,7 @@ export const createFlightSubscriptionTable = async (req, res) => {
     });
   } catch (error) {
     if (error.code === "ResourceInUseException") {
-      console.log(
-        "[DYNAMODB] Table already exists:",
+       logger.info("INFO:[DYNAMODB] Table already exists:",
         FlightSubscriptionModel.TableName
       );
 
@@ -50,7 +44,7 @@ export const createFlightSubscriptionTable = async (req, res) => {
       });
     }
 
-    console.error("[DYNAMODB] Error creating table:", {
+    logger.error("[DYNAMODB] Error creating table:", {
       table: FlightSubscriptionModel.TableName,
       error: error.message,
     });
@@ -90,7 +84,7 @@ export const clearFlightSubscriptionTableData = async (req, res) => {
       message: `Deleted ${items.length} item(s) from table ${tableName}.`,
     });
   } catch (error) {
-    console.error(`[DYNAMODB] Error clearing table data:`, error);
+    logger.error(`[DYNAMODB] Error clearing table data:`, error);
 
     return res.status(500).json({
       success: false,
@@ -139,10 +133,6 @@ export const addFlightSubscription = async (req, res) => {
       `[SUBSCRIPTION] Starting subscription process for flight ${flightNumber}`
     );
 
-    const existingFlightEvent = await getFlightEventByNumber(flightNumber);
-
-    console.log("Existing Flight:", existingFlightEvent);
-
     // Step 1: Check if user is already subscribed (Database first)
     const existingSubscription = await subscribeDb.findOne({
       walletAddress,
@@ -153,16 +143,6 @@ export const addFlightSubscription = async (req, res) => {
       customLogger.info(
         `[SUBSCRIPTION] User already subscribed to flight ${flightNumber} (Database)`
       );
-
-      let isAlreadySubscribedBlockchain = await blockchainService.isUserSubscribed(
-        walletAddress,
-        flightNumber,
-        carrierCode,
-        arrivalAirport,
-        departureAirport
-      );
-
-      console.log("isAlreadySubscribedBlockchain", isAlreadySubscribedBlockchain);
       
       return res.status(200).json({
         success: true,
@@ -591,6 +571,8 @@ export const unsubscribeFlight = async (req, res) => {
       });
     }
 
+    logger.info(`INFO: Received un-subscription request for wallet: ${walletAddress}, flights: ${flightNumbers.join(", ")}`);
+
     // Validate array lengths match
     if (flightNumbers.length !== departureAirports.length) {
       return res.status(400).json({
@@ -628,16 +610,23 @@ export const unsubscribeFlight = async (req, res) => {
           flightNumber,
         });
 
+        console.log("Checking subscription:", subscription);
+        
+
         if (subscription && subscription.isSubscriptionActive) {
           existingSubscriptions.push({
             flightNumber,
             departureAirport: departureAirports[i],
+            arrivalAirport: arrivalAirports[i],
+            carrierCode: carrierCodes[i],
             subscription,
           });
         } else {
           notFoundSubscriptions.push({
             flightNumber,
             departureAirport: departureAirports[i],
+            arrivalAirport: arrivalAirports[i],
+            carrierCode: carrierCodes[i],
             reason: subscription
               ? "subscription inactive"
               : "subscription not found",
@@ -678,6 +667,7 @@ export const unsubscribeFlight = async (req, res) => {
       flightNumber: sub.flightNumber,
       carrierCode: sub.subscription.carrierCode, // Get carrier code from existing subscription
       departureAirport: sub.departureAirport,
+      arrivalAirport: sub.arrivalAirport,
     }));
 
     try {

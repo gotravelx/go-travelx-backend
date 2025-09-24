@@ -262,28 +262,13 @@ export class FlightBlockchainService {
       throw new Error("Wallet not configured for transactions");
     }
 
-    console.log(
-      this.contractWithSigner.interface.getFunction("storeFlightDetails").inputs
-    );
-
     try {
-      // Get blockchain data
       const blockchainData = await getBlockchainData(flightStatusResp);
-
       if (!blockchainData.success) {
         throw new Error(`Data preparation failed: ${blockchainData.error}`);
       }
 
-      // Validate the prepared data
       const { flightDetailsArray, compressedFlightData } = blockchainData;
-
-      console.log(
-        "compressedFlightData",
-        typeof compressedFlightData,
-        compressedFlightData.substring(0, 1000)
-      );
-
-      console.log("compressedFlightData", compressedFlightData);
 
       if (!flightDetailsArray || !Array.isArray(flightDetailsArray)) {
         throw new Error("Invalid flight details array");
@@ -295,8 +280,7 @@ export class FlightBlockchainService {
         );
       }
 
-      // Check for empty required fields
-      const requiredFields = [0, 1, 2, 3, 4]; // flightNumber, carrierCode, arrivalAirport, departureAirport
+      const requiredFields = [0, 1, 2, 3, 4];
       for (const index of requiredFields) {
         if (
           !flightDetailsArray[index] ||
@@ -374,25 +358,16 @@ export class FlightBlockchainService {
       throw new Error("Wallet not configured for transactions");
     }
 
-    console.log(
-      "Params:",
-      typeof flightNumber,
-      typeof carrierCode,
-      typeof departureAirport,
-      typeof arrivalAirport
-    );
-
-    console.log(
-      "Params:",
-      flightNumber,
-      carrierCode,
-      departureAirport,
-      arrivalAirport
-    );
-
-    console.log("add flight subscription called");
     this.isFlightExist(flightNumber, carrierCode).then((exists) => {
-      console.log("Flight exists:", exists);
+      if (exists) {
+        customLogger.info(
+          `[Blockchain] Flight exists: This flight ${carrierCode}${flightNumber} is present in Blockchain`
+        );
+      } else {
+        customLogger.info(
+          `[Blockchain] Flight exists: This flight ${carrierCode}${flightNumber} is not present in Blockchain`
+        );
+      }
     });
 
     try {
@@ -412,7 +387,6 @@ export class FlightBlockchainService {
     } catch (error) {
       customLogger.error("Error adding flight subscription:", error);
       console.log(error);
-
       throw error;
     }
   }
@@ -426,7 +400,7 @@ export class FlightBlockchainService {
     if (!this.contractWithSigner) {
       throw new Error("Wallet not configured for transactions");
     }
-
+    
     try {
       // Validate input arrays
       if (
@@ -440,6 +414,24 @@ export class FlightBlockchainService {
       ) {
         throw new Error("Invalid or mismatched input arrays");
       }
+
+      customLogger.info(
+        `Unsubscribing from ${flightNumbers.length} flights for wallet ${this.walletAddress}`
+      );
+
+      flightNumbers.map((flight) => {
+        customLogger.info(`Flight Numbers: ${flight}`);
+      });
+
+      
+      departureAirports.map((flight) => {
+        customLogger.info(`DepartureAirports: ${flight}`);
+      });
+
+      arrivalAirports.map((flight) => {
+        customLogger.info(`ArrivalAirports: ${flight}`);
+      });
+
 
       // Sanitize inputs
       const sanitizedFlightNumbers = flightNumbers.map((fn) =>
@@ -456,8 +448,8 @@ export class FlightBlockchainService {
       const tx = await this.contractWithSigner.removeFlightSubscription(
         sanitizedFlightNumbers,
         sanitizedCarrierCodes,
+        sanitizedDepartureAirports,
         sanitizedArrivalAirports,
-        sanitizedDepartureAirports
       );
 
       const receipt = await tx.wait();

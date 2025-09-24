@@ -157,12 +157,12 @@ export const getBlockchainData = async (flightStatusResp) => {
     const rawDate = flight.FlightOriginationDate || flight.DepartureDate || "";
     const originateDate = rawDate ? dayjs(rawDate).format("YYYY-MM-DD") : "";
 
-    // Ensure airport codes and cities are strings and not empty
+
     const arrivalCity = String(
-      operationalSegment.ArrivalAirport?.Address?.City || ""
+      operationalSegment.ArrivalAirport?.Address?.City || operationalSegment.ArrivalAirport?.Name?.split(",")[0] || ""
     ).trim();
     const departureCity = String(
-      operationalSegment.DepartureAirport?.Address?.City || ""
+      operationalSegment.DepartureAirport?.Address?.City || operationalSegment.DepartureAirport?.Name?.split(",")[0] || ""
     ).trim();
     const arrivalAirport = String(
       operationalSegment.ArrivalAirport?.IATACode || ""
@@ -259,8 +259,6 @@ export const getBlockchainData = async (flightStatusResp) => {
       currentFlightStatus: currentFlightStatus,
     };
 
-    console.log("carrierCode ...",carrierCode);
-    
     customLogger.info("Successfully prepared blockchain data", {
       flightNumber,
       carrierCode: flightCarrierCode,

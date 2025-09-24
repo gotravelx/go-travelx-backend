@@ -51,15 +51,7 @@ export const insertFlightSubscription = async (subscriptionData) => {
       updatedAt,
     };
 
-    // use both partition and sort key
     await subscribeDb.create(item);
-
-    console.log("[DYNAMODB] Flight subscription saved successfully", {
-      walletAddress,
-      flightNumber,
-      blockchainTxHash,
-    });
-
     return { success: true, item };
   } catch (error) {
     console.error("[DYNAMODB] Error saving flight subscription", {

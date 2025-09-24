@@ -1,13 +1,11 @@
+
 import { getDynamoClient } from "../config/Dynamodb.js";
 import { extractKeyFlightInfo } from "../helper/helper.js";
 import { flightDb, FlightEventModel } from "../model/FlightEventModel.js";
 import { subscribeDb } from "../model/FlightSubscriptionModel.js";
 import blockchainService from "../utils/FlightBlockchainService.js";
-import customLogger from "../utils/Logger.js";
+import logger from "../utils/Logger.js";
 import { startFlightStatusMonitoring } from "./CronJobController.js";
-
-import { decryptString } from "./EncryptController.js";
-
 const walletAddress = process.env.WALLET_ADDRESS;
 
 /* ========================= CREATE TABLE START ========================*/
@@ -16,7 +14,6 @@ export const createFlightEventTable = async () => {
   const dynamoClient = getDynamoClient();
   try {
     await dynamoClient.createTable(FlightEventModel).promise();
-    console.log("[DYNAMODB] FlightEvents table created successfully.");
     return {
       success: true,
       message: "Table created successfully.",
@@ -24,22 +21,12 @@ export const createFlightEventTable = async () => {
     };
   } catch (error) {
     if (error.code === "ResourceInUseException") {
-      console.log(
-        "[DYNAMODB] Table already exists:",
-        FlightEventModel.TableName
-      );
       return {
         success: true,
         message: "Table already exists.",
         tableName: FlightEventModel.TableName,
       };
     }
-
-    console.error("[DYNAMODB] Error creating table:", {
-      table: FlightEventModel.TableName,
-      error: error.message,
-    });
-
     return {
       success: false,
       message: "Failed to create table.",
@@ -60,7 +47,7 @@ export const clearFlightEventTableData = async () => {
     const items = await flightDb.findMany();
 
     if (!items || items.length === 0) {
-      console.log(`[DYNAMODB] Table ${tableName} is already empty.`);
+      logger.info(`Info: [DYNAMODB] Table ${tableName} is already empty.`);
       return {
         success: true,
         message: "Table is already empty.",
@@ -73,8 +60,8 @@ export const clearFlightEventTableData = async () => {
       await flightDb.deleteItem(item);
     }
 
-    console.log(
-      `[DYNAMODB] Deleted ${items.length} item(s) from ${tableName}.`
+    logger.info(
+      `INFO: [DYNAMODB] Deleted ${items.length} item(s) from ${tableName}.`
     );
     return {
       success: true,
@@ -82,7 +69,7 @@ export const clearFlightEventTableData = async () => {
       tableName: tableName,
     };
   } catch (error) {
-    console.error(
+    logger.error(
       `[DYNAMODB] Error clearing table data from ${tableName}:`,
       error.message
     );

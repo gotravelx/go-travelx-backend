@@ -24,8 +24,6 @@ class DynamoDBConnection {
         ? {
             region: process.env.AWS_REGION || "us-east-1",
             endpoint: process.env.DYNAMO_ENDPOINT || "http://localhost:8000",
-            accessKeyId: "dummy",
-            secretAccessKey: "dummy",
           }
         : {
             region: process.env.AWS_REGION,

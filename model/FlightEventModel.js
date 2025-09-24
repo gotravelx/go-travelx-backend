@@ -44,13 +44,6 @@ const insertFlightEvent = async (
 
     // use both partition and sort key
     await flightDb.create(item);
-
-    console.log("[DYNAMODB] Flight event saved successfully", {
-      flightNumber,
-      departureDate,
-      blockchainHashKey,
-    });
-
     return { success: true, item };
   } catch (error) {
     console.error("[DYNAMODB] Error saving flight event", {
