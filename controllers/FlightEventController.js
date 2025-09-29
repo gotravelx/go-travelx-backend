@@ -1,12 +1,11 @@
+
 import { getDynamoClient } from "../config/Dynamodb.js";
 import { extractKeyFlightInfo } from "../helper/helper.js";
 import { flightDb, FlightEventModel } from "../model/FlightEventModel.js";
 import { subscribeDb } from "../model/FlightSubscriptionModel.js";
 import blockchainService from "../utils/FlightBlockchainService.js";
-import customLogger from "../utils/Logger.js";
+import logger from "../utils/Logger.js";
 import { startFlightStatusMonitoring } from "./CronJobController.js";
-import { decryptString } from "./EncryptController.js";
-
 const walletAddress = process.env.WALLET_ADDRESS;
 
 /* ========================= CREATE TABLE START ========================*/
@@ -15,7 +14,6 @@ export const createFlightEventTable = async () => {
   const dynamoClient = getDynamoClient();
   try {
     await dynamoClient.createTable(FlightEventModel).promise();
-    console.log("[DYNAMODB] FlightEvents table created successfully.");
     return {
       success: true,
       message: "Table created successfully.",
@@ -23,22 +21,12 @@ export const createFlightEventTable = async () => {
     };
   } catch (error) {
     if (error.code === "ResourceInUseException") {
-      console.log(
-        "[DYNAMODB] Table already exists:",
-        FlightEventModel.TableName
-      );
       return {
         success: true,
         message: "Table already exists.",
         tableName: FlightEventModel.TableName,
       };
     }
-
-    console.error("[DYNAMODB] Error creating table:", {
-      table: FlightEventModel.TableName,
-      error: error.message,
-    });
-
     return {
       success: false,
       message: "Failed to create table.",
@@ -59,7 +47,7 @@ export const clearFlightEventTableData = async () => {
     const items = await flightDb.findMany();
 
     if (!items || items.length === 0) {
-      console.log(`[DYNAMODB] Table ${tableName} is already empty.`);
+      logger.info(`Info: [DYNAMODB] Table ${tableName} is already empty.`);
       return {
         success: true,
         message: "Table is already empty.",
@@ -72,8 +60,8 @@ export const clearFlightEventTableData = async () => {
       await flightDb.deleteItem(item);
     }
 
-    console.log(
-      `[DYNAMODB] Deleted ${items.length} item(s) from ${tableName}.`
+    logger.info(
+      `INFO: [DYNAMODB] Deleted ${items.length} item(s) from ${tableName}.`
     );
     return {
       success: true,
@@ -81,7 +69,7 @@ export const clearFlightEventTableData = async () => {
       tableName: tableName,
     };
   } catch (error) {
-    console.error(
+    logger.error(
       `[DYNAMODB] Error clearing table data from ${tableName}:`,
       error.message
     );
@@ -100,7 +88,8 @@ export const clearFlightEventTableData = async () => {
 export const getHistoricalData = async (req, res) => {
   try {
     const { flightNumber } = req.params;
-    const { fromDate, toDate, carrierCode } = req.query;
+    const { fromDate, toDate, carrierCode, departureAirport, arrivalAirport } =
+      req.query;
 
     if (!flightNumber || !fromDate || !toDate || !carrierCode) {
       return res.status(400).json({
@@ -109,63 +98,22 @@ export const getHistoricalData = async (req, res) => {
       });
     }
 
-    const flightDetails = await blockchainService.getFlightDetailsByDateRange(
+    // FIXED: Pass parameters in correct order matching the service method
+    const flightDetails = await blockchainService.getFlightHistory(
       flightNumber,
-      fromDate,
-      toDate,
-      carrierCode
+      fromDate,           // string
+      toDate,            // string
+      carrierCode,       // string
+      arrivalAirport,    // string
+      departureAirport   // string
     );
-
-    const encryptionKey = process.env.ENCRYPTION_KEY;
-
-    const decryptedFlightDetails = flightDetails.map(flight => {
-      const decryptedFlight = {
-        flightNumber: flight.flightNumber,
-        scheduledDepartureDate: flight.scheduledDepartureDate,
-        carrierCode: flight.carrierCode,
-        arrivalCity: decryptString(flight.arrivalCity, encryptionKey),
-        departureCity: decryptString(flight.departureCity, encryptionKey),
-        arrivalAirport: flight.arrivalAirport,
-        departureAirport: flight.departureAirport,
-        operatingAirlineCode: decryptString(flight.operatingAirlineCode, encryptionKey),
-        arrivalGate: decryptString(flight.arrivalGate, encryptionKey),
-        departureGate: decryptString(flight.departureGate, encryptionKey),
-        flightStatus: decryptString(flight.flightStatus, encryptionKey),
-        equipmentModel: decryptString(flight.equipmentModel, encryptionKey),
-        utcTimes: {
-          actualArrival: decryptString(flight.utcTimes?.actualArrival, encryptionKey),
-          actualDeparture: decryptString(flight.utcTimes?.actualDeparture, encryptionKey),
-          estimatedArrival: decryptString(flight.utcTimes?.estimatedArrival, encryptionKey),
-          estimatedDeparture: decryptString(flight.utcTimes?.estimatedDeparture, encryptionKey),
-          scheduledArrival: decryptString(flight.utcTimes?.scheduledArrival, encryptionKey),
-          scheduledDeparture: decryptString(flight.utcTimes?.scheduledDeparture, encryptionKey),
-          arrivalDelayMinutes: decryptString(flight.utcTimes?.arrivalDelayMinutes, encryptionKey),
-          departureDelayMinutes: decryptString(flight.utcTimes?.departureDelayMinutes, encryptionKey),
-          bagClaim: decryptString(flight.utcTimes?.bagClaim, encryptionKey),
-        },
-        status: {
-          statusCode: decryptString(flight.status?.statusCode, encryptionKey),
-          statusDescription: decryptString(flight.status?.statusDescription, encryptionKey),
-          arrivalState: decryptString(flight.status?.arrivalState, encryptionKey),
-          departureState: decryptString(flight.status?.departureState, encryptionKey),
-          outUtc: decryptString(flight.status?.outUtc, encryptionKey),
-          offUtc: decryptString(flight.status?.offUtc, encryptionKey),
-          onUtc: decryptString(flight.status?.onUtc, encryptionKey),
-          inUtc: decryptString(flight.status?.inUtc, encryptionKey),
-        },
-        marketedFlightSegments: flight.marketedFlightSegments, // Keep as is or decrypt if needed
-        currentStatus: decryptString(flight.currentStatus, encryptionKey)
-      };
-
-      return decryptedFlight;
-    });
 
     res.json({
       flightNumber,
       fromDate,
       toDate,
       carrierCode,
-      flightDetails: decryptedFlightDetails,
+      flightDetails: flightDetails,
     });
   } catch (error) {
     customLogger.error("Error fetching flight details:", error);
@@ -180,7 +128,6 @@ export const getHistoricalData = async (req, res) => {
 
 export const getAllFlightDetails = async (req, res) => {
   try {
-
     // Fetch only active subscriptions
     const subscribedFlights = await subscribeDb.findMany({
       walletAddress,
@@ -197,11 +144,9 @@ export const getAllFlightDetails = async (req, res) => {
       });
     }
 
-
     const subscriptionsData = await Promise.all(
       subscribedFlights.map(async (subscription) => {
         try {
-
           // Try to find exact match
           let flightEvent = await flightDb.findOne({
             flightNumber: subscription.flightNumber,
@@ -219,7 +164,9 @@ export const getAllFlightDetails = async (req, res) => {
           }
 
           if (!flightEvent || !flightEvent.flightData) {
-            console.warn(`No valid flight data for flight: ${subscription.flightNumber}`);
+            console.warn(
+              `No valid flight data for flight: ${subscription.flightNumber}`
+            );
             return null;
           }
 
@@ -241,7 +188,9 @@ export const getAllFlightDetails = async (req, res) => {
       })
     );
 
-    const validFlightDetails = subscriptionsData.filter((flight) => flight !== null);
+    const validFlightDetails = subscriptionsData.filter(
+      (flight) => flight !== null
+    );
 
     return res.status(200).json({
       success: true,
@@ -261,4 +210,3 @@ export const getAllFlightDetails = async (req, res) => {
 };
 
 startFlightStatusMonitoring();
- 

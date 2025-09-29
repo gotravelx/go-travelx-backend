@@ -1,7 +1,9 @@
 import logger from "../utils/Logger.js";
-import { prepareFlightDataForBlockchain } from "../controllers/EncryptController.js";
 import DynamoDbOp from "../services/DynamodbOperations.js";
 import customLogger from "../utils/Logger.js";
+import { getCompressedFlightData } from "./compress-decompress.js";
+import dayjs from "dayjs";
+
 const flightSubscription = new DynamoDbOp("FlightSubscriptions", [
   "walletAddress",
   "flightNumber",
@@ -32,23 +34,55 @@ export function mapStatusToFlightPhase(statusCode) {
   }
 }
 
-export const getBlockchainData = async (flightStatusResp, encryptionKey) => {
+export const getBlockchainData = async (flightStatusResp) => {
   try {
     let flightData;
 
-    customLogger.info(`BlockChain Data Encryption ${JSON.stringify(flightData)}`)
-
+    // Extract flight data first - handle different response structures
     if (flightStatusResp?.success && flightStatusResp?.flightData) {
       flightData = flightStatusResp.flightData;
     } else if (flightStatusResp?.flightStatusResp) {
       flightData = flightStatusResp.flightStatusResp;
     } else if (flightStatusResp?.Flight) {
       flightData = flightStatusResp;
+    } else if (flightStatusResp?.flightStatusResp?.Flight) {
+      // Handle the actual structure from your JSON
+      flightData = flightStatusResp.flightStatusResp;
     } else {
+      console.error(
+        "Flight response structure:",
+        JSON.stringify(flightStatusResp, null, 2)
+      );
       throw new Error("Unable to locate flight data in response structure");
     }
 
+    // Now log after flightData is assigned
+    customLogger.info(
+      `BlockChain Data Extraction - Flight found: ${!!flightData?.Flight}`
+    );
+    customLogger.info(
+      `BlockChain Data Extraction - FlightLegs found: ${!!flightData?.FlightLegs}`
+    );
+
+    if (flightData?.FlightLegs?.[0]?.OperationalFlightSegments?.[0]) {
+      customLogger.info(
+        `BlockChain Data Extraction - OperationalSegment found: true`
+      );
+    } else {
+      customLogger.info(
+        `BlockChain Data Extraction - OperationalSegment found: false`
+      );
+      customLogger.info(
+        `Available FlightLegs structure: ${JSON.stringify(
+          flightData?.FlightLegs,
+          null,
+          2
+        )}`
+      );
+    }
+
     // Navigate through the nested structure
+
     const flight = flightData?.Flight;
     const operationalSegment =
       flightData?.FlightLegs?.[0]?.OperationalFlightSegments?.[0];
@@ -100,135 +134,147 @@ export const getBlockchainData = async (flightStatusResp, encryptionKey) => {
       currentFlightStatus = "OUT";
     }
 
-    // Extract marketing segments
-    const marketedFlightSegment = scheduledSegment?.MarketedFlightSegment || [];
+    const carrierCode =
+      operationalSegment.OperatingAirlineCode ||
+      operationalSegment.OperatingAirline?.IATACode ||
+      "";
 
-    // Extract and validate useful keys from flight data
-    const extractedFlightData = {
-      // Required fields
-      flightNumber: flight.FlightNumber || "",
-      carrierCode:"UA"||"UA",
-      scheduledDepartureDate:
-        flight.FlightOriginationDate || flight.DepartureDate || "",
+    let compressedFlightData = "";
+    try {
+      compressedFlightData = await getCompressedFlightData(flightData);
+    } catch (compressionError) {
+      customLogger.warn(
+        "Failed to compress flight data:",
+        compressionError.message
+      );
+      
+      compressedFlightData = "";
+    }
 
-      // Basic flight information
-      arrivalCity: operationalSegment.ArrivalAirport?.Address?.City || "",
-      departureCity: operationalSegment.DepartureAirport?.Address?.City || "",
-      arrivalAirport: operationalSegment.ArrivalAirport?.IATACode || "",
-      departureAirport: operationalSegment.DepartureAirport?.IATACode || "",
-      operatingAirline:
-        operationalSegment.OperatingAirline?.Name ||
-        operationalSegment.OperatingAirline?.IATACode ||
-        "",
+    // Extract individual values with proper validation and sanitization
+    const flightNumber = String(flight.FlightNumber || "").trim();
+    const flightCarrierCode = "UA";
+    const rawDate = flight.FlightOriginationDate || flight.DepartureDate || "";
+    const originateDate = rawDate ? dayjs(rawDate).format("YYYY-MM-DD") : "";
 
-      // Gate information
-      arrivalGate: operationalSegment.ArrivalGate || "",
-      departureGate: operationalSegment.DepartureGate || "",
 
-      // Aircraft information
-      equipmentModel:
-        operationalSegment.Equipment?.Model?.Description ||
-        scheduledSegment?.Equipment?.Model?.Description ||
-        "",
+    const arrivalCity = String(
+      operationalSegment.ArrivalAirport?.Address?.City || operationalSegment.ArrivalAirport?.Name?.split(",")[0] || ""
+    ).trim();
+    const departureCity = String(
+      operationalSegment.DepartureAirport?.Address?.City || operationalSegment.DepartureAirport?.Name?.split(",")[0] || ""
+    ).trim();
+    const arrivalAirport = String(
+      operationalSegment.ArrivalAirport?.IATACode || ""
+    ).trim();
+    const departureAirport = String(
+      operationalSegment.DepartureAirport?.IATACode || ""
+    ).trim();
 
-      // Current flight status
+    const arrivalStatusStr = String(arrivalStatus?.Code || "").trim();
+    const departureStatusStr = String(departureStatus?.Code || "").trim();
+    const legStatusStr = String(legStatus?.Code || "").trim();
+
+    customLogger.info("Extracted flight data:", {
+      flightNumber,
+      flightCarrierCode,
+      originateDate,
+      arrivalAirport,
+      departureAirport,
+      arrivalCity,
+      departureCity,
+      arrivalStatusStr,
+      departureStatusStr,
+      legStatusStr,
+    });
+
+    if (
+      !flightNumber ||
+      !flightCarrierCode ||
+      !arrivalAirport ||
+      !departureAirport
+    ) {
+      console.error("Missing required flight details:");
+      console.error("Flight Number:", flightNumber);
+      console.error("Carrier Code:", flightCarrierCode);
+      console.error("Arrival Airport:", arrivalAirport);
+      console.error("Departure Airport:", departureAirport);
+      throw new Error(
+        "Invalid input parameters - missing required flight details"
+      );
+    }
+
+    // Validate flight number and carrier code format (basic validation)
+    if (flightNumber.length === 0 || flightNumber.length > 10) {
+      throw new Error("Flight number must be between 1-10 characters");
+    }
+
+    if (flightCarrierCode.length === 0 || flightCarrierCode.length > 5) {
+      throw new Error("Carrier code must be between 1-5 characters");
+    }
+
+    if (arrivalAirport.length !== 3 || departureAirport.length !== 3) {
+      throw new Error("Airport codes must be exactly 3 characters");
+    }
+
+    const flightDetailsArray = [
+      flightCarrierCode,
+      flightNumber,
+      originateDate,
+      arrivalAirport,
+      departureAirport,
+      arrivalCity,
+      departureCity,
+      arrivalStatusStr,
+      departureStatusStr,
+      legStatusStr,
+    ];
+
+    // Validate array length
+    if (flightDetailsArray.length !== 10) {
+      throw new Error(
+        `Flight details array must have exactly 10 elements, got ${flightDetailsArray.length}`
+      );
+    }
+
+    // Ensure no undefined values in the array
+    const sanitizedArray = flightDetailsArray.map((item, index) => {
+      const str = String(item || "").trim();
+      customLogger.info(`Array[${index}]: "${str}" (length: ${str.length})`);
+      return str;
+    });
+
+    // Also create an object version for easier access
+    const flightDetailsObject = {
+      flightNumber,
+      carrierCode: flightCarrierCode,
+      originateDate,
+      arrivalCity,
+      departureCity,
+      arrivalAirport,
+      departureAirport,
+      arrivalStatus: arrivalStatusStr,
+      departureStatus: departureStatusStr,
+      legStatus: legStatusStr,
       currentFlightStatus: currentFlightStatus,
-      flightStatusDescription:
-        legStatus?.Description || flightStatus?.Description || "",
-      statusCode: legStatus?.Code || flightStatus?.Code || "",
-
-      // UTC Time fields
-      actualArrivalUTC: operationalSegment.ActualArrivalUTCTime || "",
-      actualDepartureUTC: operationalSegment.ActualDepartureUTCTime || "",
-      estimatedArrivalUTC: operationalSegment.EstimatedArrivalUTCTime || "",
-      estimatedDepartureUTC: operationalSegment.EstimatedDepartureUTCTime || "",
-      scheduledArrivalUTCDateTime:
-        operationalSegment.ArrivalUTCDateTime ||
-        scheduledSegment?.ArrivalUTCDateTime ||
-        "",
-      scheduledDepartureUTCDateTime:
-        operationalSegment.DepartureUTCDateTime ||
-        scheduledSegment?.DepartureUTCDateTime ||
-        "",
-
-      // FIXED: Status transition timestamps (OUT/OFF/ON/IN times)
-      outTimeUTC: operationalSegment.OutUTCTime || "", // When aircraft pushes back from gate
-      offTimeUTC: operationalSegment.OffUTCTime || "", // When aircraft takes off
-      onTimeUTC: operationalSegment.OnUTCTime || "", // When aircraft lands
-      inTimeUTC: operationalSegment.InUTCTime || "", // When aircraft arrives at gate (if available)
-
-      // ADDITIONAL: Local time versions for reference
-      outTimeLocal: operationalSegment.OutTime || "",
-      offTimeLocal: operationalSegment.OffTime || "",
-      onTimeLocal: operationalSegment.OnTime || "",
-      inTimeLocal: operationalSegment.InTime || "",
-
-      // Delay information
-      arrivalDelayMinutes: parseInt(
-        operationalSegment.EstimatedArrivalDelayMinutes || "0"
-      ),
-      departureDelayMinutes: parseInt(
-        operationalSegment.EstimatedDepartureDelayMinutes || "0"
-      ),
-
-      // Location states
-      arrivalState: arrivalStatus.Code || "",
-      departureState: departureStatus.Code || "",
-
-      // Baggage information
-      bagClaim:
-        operationalSegment.ArrivalBagClaimUnit ||
-        operationalSegment.BagClaim ||
-        "",
-
-      // Marketing segments (codeshare flights)
-      marketedFlightSegment: marketedFlightSegment,
-
-      // ADDITIONAL: Aircraft tail number and other details
-      tailNumber: operationalSegment.Equipment?.TailNumber || "",
-      aircraftType: operationalSegment.Equipment?.Model?.Genre || "",
-
-      // ADDITIONAL: Terminal information
-      departureTerminal: operationalSegment.DepartureTerminal || "",
-      arrivalTerminal: operationalSegment.ArrivalTermimal || "", // Note: API has typo "Termimal"
-
-      // ADDITIONAL: Board time information
-      boardTime: operationalSegment.BoardTime || "",
     };
 
-    // Validate that we have the minimum required fields
-    if (!extractedFlightData.flightNumber) {
-      throw new Error("Flight number is required");
-    }
-    if (!extractedFlightData.carrierCode) {
-      throw new Error("Carrier code is required");
-    }
-    if (!extractedFlightData.scheduledDepartureDate) {
-      throw new Error("Scheduled departure date is required");
-    }
+    customLogger.info("Successfully prepared blockchain data", {
+      flightNumber,
+      carrierCode: flightCarrierCode,
+      arrayLength: sanitizedArray.length,
+      compressedDataLength: compressedFlightData.length,
+    });
 
-    const blockchainData = prepareFlightDataForBlockchain(
-      extractedFlightData,
-      encryptionKey
-    );
-
-    // Validate that blockchain data contains the expected arrays
-    if (
-      !blockchainData.blockchainFlightData ||
-      !Array.isArray(blockchainData.blockchainFlightData)
-    ) {
-      console.error("Missing or invalid blockchainFlightData array");
-    }
-    if (
-      !blockchainData.marketingAirlineCodes ||
-      !Array.isArray(blockchainData.marketingAirlineCodes)
-    ) {
-      console.error("Missing or invalid marketingAirlineCodes array");
-    }
-
-    return blockchainData;
+    return {
+      success: true,
+      flightDetails: flightDetailsObject, // Object format for easy access
+      flightDetailsArray: sanitizedArray, // Array format for smart contract
+      compressedFlightData: compressedFlightData,
+    };
   } catch (error) {
     console.error("Error preparing blockchain data:", error.message);
+    customLogger.error("Error preparing blockchain data:", error);
     return {
       success: false,
       error: error.message,
@@ -248,6 +294,11 @@ export const extractKeyFlightInfo = (flightData) => {
     if (!flight) {
       throw new Error("Invalid flight data structure");
     }
+
+    // const carrierCode =
+    //   operationalSegment.OperatingAirlineCode ||
+    //   operationalSegment.OperatingAirline?.IATACode ||
+    //   "";
 
     if (!operationalSegment) {
       logger.error(
@@ -274,7 +325,7 @@ export const extractKeyFlightInfo = (flightData) => {
       // Basic Flight Info
       flightNumber: flight.FlightNumber,
       departureDate: flight.DepartureDate,
-
+      carrierCode: "UA",
       // Airports
       departureAirport: {
         code: operationalSegment?.DepartureAirport?.IATACode,
@@ -404,7 +455,7 @@ export const checkFlightSubscription = async (walletAddress, flightNumber) => {
       flightNumber: String(flightNumber),
     });
 
-    return !!subscription;
+    return subscription.isSubscriptionActive;
   } catch (error) {
     console.error("[SUBSCRIPTION CHECK] Error:", error);
     return false;

@@ -9,8 +9,6 @@ import { updateFlightEvent } from "../model/FlightEventModel.js";
 // Initialize DynamoDB operations
 const flightEventDb = new DynamoDbOp("FlightEvents", "flightNumber");
 
-const encryptionKey = process.env.ENCRYPTION_KEY || "default-key";
-
 // Define valid flight status transitions
 const validTransitions = {
   NDPT: ["OUT", "OFF", "ON", "IN", "CNCL"], // Not Departed -> Departed Gate, Cancelled
@@ -39,7 +37,7 @@ export const startFlightStatusMonitoring = () => {
 
       customLogger.info("Flight status monitoring job completed successfully");
     } catch (error) {
-      customLogger.error("Error in flight status monitoring job:", error);
+      customLogger.error(`Error in flight status monitoring job: ${error}` );
     }
   });
 
@@ -86,17 +84,7 @@ const processFlightStatusUpdate = async (flight) => {
     );
     // Get blockchain data (this extracts and structures the flight data)
 
-    const blockchainData = await getBlockchainData(
-      flightDataResponse,
-      encryptionKey
-    );
-
-    if (!blockchainData.success && blockchainData.error) {
-      customLogger.error(
-        `Error preparing blockchain data for ${flight.flightNumber}: ${blockchainData.error}`
-      );
-      return;
-    }
+  
     const flightNumber = flight.flightNumber;
     // Extract current flight status from blockchain data
 
@@ -130,13 +118,8 @@ const processFlightStatusUpdate = async (flight) => {
       `Update allowed for ${flight.flightNumber} – New Date: ${isNewDepartureDate}, Status Changed: ${hasValidTransition} In Blockchain`
     );
     // Insert data into blockchain
-    const blockchainResult = await blockchainService.insertFlightDetails(
-      blockchainData.blockchainFlightData,
-      blockchainData.blockchainUtcTimes,
-      blockchainData.blockchainStatusData,
-      blockchainData.marketingAirlineCodes,
-      blockchainData.marketingFlightNumbers
-    );
+    const blockchainResult = await blockchainService.storeFlightInBlockchain(flightDataResponse);
+    
 
     if (!blockchainResult.success) {
       customLogger.error(

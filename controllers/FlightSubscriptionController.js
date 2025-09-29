@@ -1,5 +1,5 @@
 import { getDynamoClient } from "../config/Dynamodb.js";
-import { extractKeyFlightInfo, getBlockchainData } from "../helper/helper.js";
+import { extractKeyFlightInfo } from "../helper/helper.js";
 import {
   getFlightEventByNumber,
   insertFlightEvent,
@@ -13,11 +13,10 @@ import {
 import blockchainService from "../utils/FlightBlockchainService.js";
 import customLogger from "../utils/Logger.js";
 import { fetchFlightData } from "./UnitedApiController.js";
-
 import { flightDb } from "../model/FlightEventModel.js";
-
-const encryptionKey = process.env.ENCRYPTION_KEY;
+import logger from "../utils/Logger.js";;
 const walletAddress = process.env.WALLET_ADDRESS;
+
 
 /* ====================== Create Flight Subscription Api =============================== */
 
@@ -25,7 +24,7 @@ export const createFlightSubscriptionTable = async (req, res) => {
   const dynamoClient = getDynamoClient();
   try {
     await dynamoClient.createTable(FlightSubscriptionModel).promise();
-    console.log("[DYNAMODB] FlightSubscriptions table created successfully.");
+    logger.info("INFO: [DYNAMODB] FlightSubscriptions table created successfully.");
 
     return res.status(201).json({
       success: true,
@@ -34,8 +33,7 @@ export const createFlightSubscriptionTable = async (req, res) => {
     });
   } catch (error) {
     if (error.code === "ResourceInUseException") {
-      console.log(
-        "[DYNAMODB] Table already exists:",
+       logger.info("INFO:[DYNAMODB] Table already exists:",
         FlightSubscriptionModel.TableName
       );
 
@@ -46,7 +44,7 @@ export const createFlightSubscriptionTable = async (req, res) => {
       });
     }
 
-    console.error("[DYNAMODB] Error creating table:", {
+    logger.error("[DYNAMODB] Error creating table:", {
       table: FlightSubscriptionModel.TableName,
       error: error.message,
     });
@@ -86,7 +84,7 @@ export const clearFlightSubscriptionTableData = async (req, res) => {
       message: `Deleted ${items.length} item(s) from table ${tableName}.`,
     });
   } catch (error) {
-    console.error(`[DYNAMODB] Error clearing table data:`, error);
+    logger.error(`[DYNAMODB] Error clearing table data:`, error);
 
     return res.status(500).json({
       success: false,
@@ -145,6 +143,7 @@ export const addFlightSubscription = async (req, res) => {
       customLogger.info(
         `[SUBSCRIPTION] User already subscribed to flight ${flightNumber} (Database)`
       );
+      
       return res.status(200).json({
         success: true,
         flightNumber,
@@ -158,13 +157,13 @@ export const addFlightSubscription = async (req, res) => {
     // Step 2: Check blockchain subscription status
     let isAlreadySubscribedBlockchain = false;
     try {
-      isAlreadySubscribedBlockchain =
-        await blockchainService.checkFlightSubscription(
-          walletAddress,
-          flightNumber,
-          carrierCode,
-          departureAirport
-        );
+      isAlreadySubscribedBlockchain = await blockchainService.isUserSubscribed(
+        walletAddress,
+        flightNumber,
+        carrierCode,
+        arrivalAirport,
+        departureAirport
+      );
 
       if (isAlreadySubscribedBlockchain) {
         customLogger.info(
@@ -183,7 +182,6 @@ export const addFlightSubscription = async (req, res) => {
       customLogger.warn(
         `[SUBSCRIPTION] Error checking blockchain subscription: ${blockchainError.message}`
       );
-      // Continue with the subscription process even if check fails
     }
 
     // Step 3: Fetch flight data from external API
@@ -193,6 +191,7 @@ export const addFlightSubscription = async (req, res) => {
     const flightDataResponse = await fetchFlightData(flightNumber, {
       departureDate,
       departure: departureAirport,
+      arrival: arrivalAirport,
     });
 
     if (!flightDataResponse?.success) {
@@ -220,20 +219,19 @@ export const addFlightSubscription = async (req, res) => {
     let blockchainFlightHash = null;
 
     try {
-      // Check if flight event already exists
-      const existingFlightEvent = await getFlightEventByNumber(
-        flightNumber,
-        departureDate
-      );
+      // Check if flight  already exists
+      const existingFlightEvent = await getFlightEventByNumber(flightNumber);
 
       if (!existingFlightEvent) {
         customLogger.info(
-          `[SUBSCRIPTION] Flight event not found, creating new one for ${flightNumber}`
+          `[SUBSCRIPTION] Flight  not found, creating new one for ${flightNumber}`
         );
 
         // Check if flight exists in blockchain
-        const isFlightExistInBlockchain =
-          await blockchainService.checkFlightExistence(flightNumber);
+        const isFlightExistInBlockchain = await blockchainService.isFlightExist(
+          flightNumber,
+          flightDetails.carrierCode
+        );
 
         if (!isFlightExistInBlockchain) {
           // Prepare and insert flight data to blockchain
@@ -241,51 +239,30 @@ export const addFlightSubscription = async (req, res) => {
             `[SUBSCRIPTION] Flight not in blockchain, inserting flight data for ${flightNumber}`
           );
 
-          const preparedData = await getBlockchainData(
-            flightDataResponse,
-            encryptionKey
-          );
-
-          if (preparedData.success == false) {
-            customLogger.error(
-              `[SUBSCRIPTION] Failed to prepare blockchain data: ${preparedData.error}`
-            );
-            throw new Error(
-              `Failed to prepare blockchain data: ${preparedData.error}`
-            );
-          }
-
-          const blockchainInsert = await blockchainService.insertFlightDetails(
-            preparedData.blockchainFlightData,
-            preparedData.blockchainUtcTimes,
-            preparedData.blockchainStatusData,
-            preparedData.marketingAirlineCodes,
-            preparedData.marketingFlightNumbers
-          );
+          const blockchainInsert =
+            await blockchainService.storeFlightInBlockchain(flightData);
 
           blockchainFlightHash = blockchainInsert.transactionHash;
           customLogger.info(
             `[SUBSCRIPTION] Flight data inserted to blockchain. Hash: ${blockchainFlightHash}`
           );
 
-                  // Insert flight event to database
-        flightEventResult = await insertFlightEvent(
-          flightNumber,
-          carrierCode,
-          departureDate,
-          departureAirport,
-          arrivalAirport,
-          flightStatus,
-          blockchainFlightHash,
-          flightData
-        );
+          // Insert flight event to database
+          flightEventResult = await insertFlightEvent(
+            flightNumber,
+            flightDetails.carrierCode,
+            departureDate,
+            departureAirport,
+            arrivalAirport,
+            flightStatus,
+            blockchainFlightHash,
+            flightData
+          );
         } else {
           customLogger.info(
             `[SUBSCRIPTION] Flight already exists in blockchain for ${flightNumber}`
           );
         }
-
-
 
         customLogger.info(
           `[SUBSCRIPTION] Flight event inserted to database for ${flightNumber}`
@@ -297,35 +274,18 @@ export const addFlightSubscription = async (req, res) => {
         blockchainFlightHash = existingFlightEvent.blockchainHashKey;
 
         // Double-check that flight exists in blockchain even if we have a database record
-        const isFlightExistInBlockchain =
-          await blockchainService.checkFlightExistence(flightNumber);
+        const isFlightExistInBlockchain = await blockchainService.isFlightExist(
+          flightNumber,
+          carrierCode
+        );
 
         if (!isFlightExistInBlockchain) {
           customLogger.warn(
             `[SUBSCRIPTION] Flight event exists in DB but not in blockchain for ${flightNumber}. Inserting to blockchain.`
           );
 
-          const preparedData = await getBlockchainData(
-            flightDataResponse,
-            encryptionKey
-          );
-
-          if (preparedData.success === false) {
-            customLogger.error(
-              `[SUBSCRIPTION] Failed to prepare blockchain data: ${preparedData.error}`
-            );
-            throw new Error(
-              `Failed to prepare blockchain data: ${preparedData.error}`
-            );
-          }
-
-          const blockchainInsert = await blockchainService.insertFlightDetails(
-            preparedData.blockchainFlightData,
-            preparedData.blockchainUtcTimes,
-            preparedData.blockchainStatusData,
-            preparedData.marketingAirlineCodes,
-            preparedData.marketingFlightNumbers
-          );
+          const blockchainInsert =
+            await blockchainService.storeFlightInBlockchain(flightData);
 
           blockchainFlightHash = blockchainInsert.transactionHash;
           customLogger.info(
@@ -351,10 +311,11 @@ export const addFlightSubscription = async (req, res) => {
     );
     let blockchainSubscription;
     try {
-      blockchainSubscription = await blockchainService.addFlightSubscription(
+      blockchainSubscription = await blockchainService.addSubscription(
         flightNumber,
         carrierCode,
-        departureAirport
+        departureAirport,
+        arrivalAirport
       );
 
       customLogger.info(
@@ -483,7 +444,6 @@ export const addFlightSubscription = async (req, res) => {
 
 export const getSubscribedFlights = async (req, res) => {
   try {
-
     if (!walletAddress) {
       return res.status(400).json({
         success: false,
@@ -573,28 +533,45 @@ export const getSubscribedFlights = async (req, res) => {
 
 /* ============  Unsubscribe flight via wallet address and flight Number */
 
-
 export const unsubscribeFlight = async (req, res) => {
   try {
-    const { flightNumbers, departureAirports } = req.body;
+    const { flightNumbers, carrierCodes, departureAirports, arrivalAirports } =
+      req.body;
 
     // Validate required parameters
-    if (!flightNumbers || !departureAirports) {
+    if (
+      !flightNumbers ||
+      !carrierCodes ||
+      !departureAirports ||
+      !arrivalAirports
+    ) {
       return res.status(400).json({
         success: false,
         error: "Missing required parameters",
-        required: ["flightNumbers", "departureAirports"],
+        required: [
+          "flightNumbers",
+          "carrierCodes",
+          "departureAirports",
+          "arrivalAirports",
+        ],
       });
     }
 
     // Validate arrays
-    if (!Array.isArray(flightNumbers) || !Array.isArray(departureAirports)) {
+    if (
+      !Array.isArray(flightNumbers) ||
+      !Array.isArray(departureAirports) ||
+      !Array.isArray(carrierCodes) ||
+      !Array.isArray(arrivalAirports)
+    ) {
       return res.status(400).json({
         success: false,
         error: "Parameters must be arrays",
         required: ["flightNumbers", "departureAirports"],
       });
     }
+
+    logger.info(`INFO: Received un-subscription request for wallet: ${walletAddress}, flights: ${flightNumbers.join(", ")}`);
 
     // Validate array lengths match
     if (flightNumbers.length !== departureAirports.length) {
@@ -612,12 +589,12 @@ export const unsubscribeFlight = async (req, res) => {
     if (flightNumbers.length === 0) {
       return res.status(400).json({
         success: false,
-        error: "At least one flight must be provided for unsubscription",
+        error: "At least one flight must be provided for un subscription",
       });
     }
 
     customLogger.info(
-      `[UNSUBSCRIBE] Starting unsubscription process for ${flightNumbers.length} flights`
+      `[UNSUBSCRIBE] Starting un subscription process for ${flightNumbers.length} flights`
     );
 
     // Step 1: Check existing subscriptions in database
@@ -637,12 +614,16 @@ export const unsubscribeFlight = async (req, res) => {
           existingSubscriptions.push({
             flightNumber,
             departureAirport: departureAirports[i],
+            arrivalAirport: arrivalAirports[i],
+            carrierCode: carrierCodes[i],
             subscription,
           });
         } else {
           notFoundSubscriptions.push({
             flightNumber,
             departureAirport: departureAirports[i],
+            arrivalAirport: arrivalAirports[i],
+            carrierCode: carrierCodes[i],
             reason: subscription
               ? "subscription inactive"
               : "subscription not found",
@@ -683,6 +664,7 @@ export const unsubscribeFlight = async (req, res) => {
       flightNumber: sub.flightNumber,
       carrierCode: sub.subscription.carrierCode, // Get carrier code from existing subscription
       departureAirport: sub.departureAirport,
+      arrivalAirport: sub.arrivalAirport,
     }));
 
     try {
@@ -691,10 +673,11 @@ export const unsubscribeFlight = async (req, res) => {
       );
 
       blockchainUnsubscription =
-        await blockchainService.removeFlightSubscriptions(
+        await blockchainService.removeFlightSubscription(
           subscriptionsToRemove.map((s) => s.flightNumber),
           subscriptionsToRemove.map((s) => s.carrierCode),
-          subscriptionsToRemove.map((s) => s.departureAirport)
+          subscriptionsToRemove.map((s) => s.departureAirport),
+          subscriptionsToRemove.map((s) => s.arrivalAirport)
         );
 
       customLogger.info(
@@ -748,10 +731,10 @@ export const unsubscribeFlight = async (req, res) => {
 
         // Use DynamoDB updateOne operation
         await subscribeDb.updateOne(
-          { 
-            walletAddress, 
-            flightNumber: subscription.flightNumber 
-          }, 
+          {
+            walletAddress,
+            flightNumber: subscription.flightNumber,
+          },
           updateData
         );
 
@@ -802,7 +785,8 @@ export const unsubscribeFlight = async (req, res) => {
         activeSubscriptions: existingSubscriptions.length,
         successfulUnsubscriptions,
         dbUpdateResults,
-        subscriptionStatus: "All subscriptions marked as inactive (isSubscriptionActive: false)",
+        subscriptionStatus:
+          "All subscriptions marked as inactive (isSubscriptionActive: false)",
       },
     };
 

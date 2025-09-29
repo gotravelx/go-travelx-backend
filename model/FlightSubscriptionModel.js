@@ -51,15 +51,7 @@ export const insertFlightSubscription = async (subscriptionData) => {
       updatedAt,
     };
 
-    // use both partition and sort key
     await subscribeDb.create(item);
-
-    console.log("[DYNAMODB] Flight subscription saved successfully", {
-      walletAddress,
-      flightNumber,
-      blockchainTxHash,
-    });
-
     return { success: true, item };
   } catch (error) {
     console.error("[DYNAMODB] Error saving flight subscription", {
@@ -202,8 +194,9 @@ export const isFlightSubscribed = async (walletAddress, flightNumber) => {
     const filter = { walletAddress, flightNumber };
 
     const exists = await subscribeDb.findOne(filter);
+    if(!exists) return { success: true, isSubscribed:false };
 
-    return { success: true, isSubscribed: exists.isSubscriptionActive };
+    return { success: true, isSubscribed:true, item: exists };
   } catch (error) {
     console.error("[DYNAMODB] Error checking flight subscription existence", {
       walletAddress,

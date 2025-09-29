@@ -1,15 +1,17 @@
+import { getDocumentClient } from "../config/Dynamodb.js";
 import DbOperations from "./DbOperations.js";
-import AWS from "aws-sdk";
 
 class DynamoDbOp extends DbOperations {
   constructor(tableName, primaryKey = "id") {
     super();
     this.tableName = tableName;
     this.primaryKey = primaryKey;
-    this.dynamodb = new AWS.DynamoDB.DocumentClient();
   }
 
-  
+  get dynamodb() {
+    return getDocumentClient();
+  }
+
   extractKey(item) {
     if (Array.isArray(this.primaryKey)) {
       const key = {};
