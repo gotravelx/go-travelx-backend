@@ -676,6 +676,71 @@ export class FlightBlockchainService {
       throw error;
     }
   }
+
+  async storeMultipleFlightDetails(flightInputs) {
+    if (!this.contractWithSigner) {
+      throw new Error("Wallet not configured for transactions");
+    }
+  
+    try {
+      if (!Array.isArray(flightInputs) || flightInputs.length === 0) {
+        throw new Error("No flight data provided for batch insert");
+      }
+  
+      if (flightInputs.length > 100) {
+        throw new Error("Too many flights in batch (max 100 allowed)");
+      }
+  
+      // Validate each flight input
+      for (const input of flightInputs) {
+        if (
+          !input.flightDetails ||
+          !Array.isArray(input.flightDetails) ||
+          input.flightDetails.length !== 10
+        ) {
+          throw new Error(
+            `Invalid flightDetails array, expected 10 elements, got ${input.flightDetails?.length}`
+          );
+        }
+  
+        // Ensure required fields are not empty
+        const requiredFields = [0, 1, 2, 3, 4]; // carrierCode, flightNumber, originateDate, arrivalAirport, departureAirport
+        for (const idx of requiredFields) {
+          if (!input.flightDetails[idx] || input.flightDetails[idx].trim() === "") {
+            throw new Error(`Required flight field at index ${idx} is empty`);
+          }
+        }
+  
+        if (typeof input.compressedFlightInformation !== "string") {
+          throw new Error("Invalid compressedFlightInformation");
+        }
+      }
+  
+      // Send batch transaction
+      const tx = await this.contractWithSigner.storeMultipleFlightDetails(
+        flightInputs
+      );
+  
+      customLogger.info(`Batch transaction sent: ${tx.hash}`);
+  
+      const receipt = await tx.wait();
+  
+      customLogger.info(
+        `Batch transaction confirmed in block ${receipt.blockNumber}`
+      );
+  
+      return {
+        success: true,
+        transactionHash: tx.hash,
+        blockNumber: receipt.blockNumber,
+        gasUsed: receipt.gasUsed?.toString(),
+        flightsInBatch: flightInputs.length,
+      };
+    } catch (error) {
+      customLogger.error("Error storing multiple flight details:", error);
+      throw error;
+    }
+  }
 }
 
 export const createFlightBlockchainService = (
@@ -693,3 +758,4 @@ export const createFlightBlockchainService = (
     walletAddress
   );
 };
+

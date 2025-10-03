@@ -3,6 +3,7 @@ import express from "express";
 import cookieParser from "cookie-parser";
 import cors from "cors";
 import FlightRouter from "./routes/FlightEventRoutes.js";
+import authRouter from "./routes/authRoutes.js";
 import logger from "./utils/Logger.js";
 import { connectDynamoDB } from "./config/Dynamodb.js";
 import TokenRefresher from "./helper/0authTokenManager.js";
@@ -124,11 +125,15 @@ logger.info(`Application version: ${version}`);
 logger.info(`Environment: ${ENV}`);
 logger.info(`Allowed origins: ${allowedOrigins.length} configured`);
 
+// =======================Auth routes=================================
+app.use(`/${version}/auth`,authRouter);
+
 /* ==================== Flight Event routes ========================= */
 app.use(`/${version}/flights`, FlightRouter);
 
 /* ==================== Subscription routes ========================= */
 app.use(`/${version}/subscription`, SubscriptionRouter);
+
 
 /* ==================== Routes Setups End ====================*/
 
