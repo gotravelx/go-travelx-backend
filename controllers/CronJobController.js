@@ -24,32 +24,76 @@ const validTransitions = {
 
 
 export const startFlightStatusMonitoring = () => {
-  // Run every 5 minutes
-  const job = scheduleJob.scheduleJob("*/5 * * * *", async () => {
+  const job = scheduleJob?.scheduleJob("*/5 * * * *", async () => {
     try {
       customLogger.info("Starting flight status monitoring job...");
-      // Process each unique flight (group by flightNumber + departureDate)
+
+      // Get all flights from DB
       const allFlightsInDB = await flightEventDb.findMany({});
 
+      const flightsToStore = [];
+
       for (const flight of allFlightsInDB) {
-        await processFlightStatusUpdate(flight);
+        const preparedFlight = await processFlightStatusUpdate(flight);
+        if (preparedFlight) {
+          flightsToStore.push(preparedFlight);
+        }
+      }
+
+      // Store multiple flights in blockchain in a single batch
+      if (flightsToStore?.length > 0) {
+        try {
+          const batchResult =
+            await blockchainService.storeMultipleFlightDetails(
+              flightsToStore
+            );
+
+          customLogger.info(
+            `Successfully stored ${flightsToStore?.length} flights in blockchain. Transaction Hash: ${batchResult.transactionHash}`
+          );
+
+          // Update DB after successful blockchain insertion
+          for (const flight of flightsToStore) {
+            await updateFlightEvent(
+              flight?.flightNumber,
+              flight?.carrierCode,
+              flight?.departureDate,
+              flight?.departureAirport,
+              flight?.arrivalAirport,
+              flight?.currentStatus,
+              batchResult?.transactionHash,
+              flight?.flightDataFromAPI
+            );
+            customLogger.info(
+              `Flight event updated for ${flight.flightNumber} with status ${flight?.currentStatus}`
+            );
+          }
+        } catch (error) {
+          customLogger.error(
+            "Error storing multiple flights in blockchain:",
+            error
+          );
+        }
       }
 
       customLogger.info("Flight status monitoring job completed successfully");
     } catch (error) {
-      customLogger.error(`Error in flight status monitoring job: ${error}` );
+      customLogger.error(
+        `Error in flight status monitoring job: ${error}`
+      );
     }
   });
 
-  customLogger.info("Flight status monitoring job scheduled (every 5 minutes)");
+  customLogger.info(
+    "Flight status monitoring job scheduled (every 5 minutes)"
+  );
   return job;
 };
-
 // Main function to process flight status update
 const processFlightStatusUpdate = async (flight) => {
   try {
     customLogger.info(
-      `Processing flight status update for ${flight.flightNumber} on ${flight.departureDate}`
+      `Processing flight status update for ${flight?.flightNumber} on ${flight?.departureDate}`
     );
 
     const todayDateString = new Date().toISOString().split("T")[0];
@@ -59,8 +103,8 @@ const processFlightStatusUpdate = async (flight) => {
       Number(flight.flightNumber),
       {
         departureDate: todayDateString,
-        departure: flight.departureAirport,
-        arrival: flight.arrivalAirport,
+        departure: flight?.departureAirport,
+        arrival: flight?.arrivalAirport,
       }
     );
 

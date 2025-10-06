@@ -5,13 +5,15 @@ import {
   createAirportCode,
   getAllAirportCodes,
 } from "../controllers/AirportCodesController.js";
+import { validateToken } from "../middleware/validateToken.js";
 
 const router = express.Router();
 
-// Table management routes
-router.post("/table/create", createAirportCodesTable);
-router.post("/", createAirportCode);
-router.get("/", getAllAirportCodes);
+// Protect routes with validateToken middleware
+router.post("/table/create", validateToken, createAirportCodesTable);
+router.post("/", validateToken, createAirportCode);
+router.get("/", validateToken, getAllAirportCodes);
+
 
 
 export default router;
