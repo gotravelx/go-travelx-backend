@@ -378,21 +378,23 @@ const allowedOrigins = [
 // Open CORS setup for all environments
 const corsOptions = {
   origin: function (origin, callback) {
-    // Allow all requests if origin matches or no origin (like Postman)
     if (!origin || allowedOrigins.includes(origin)) {
       callback(null, true);
     } else {
       logger.warn(`🚫 CORS blocked origin: ${origin}`);
-      callback(null, true); // Allow temporarily — change to strict later if needed
+      callback(null, true); // Allow temporarily
     }
   },
   credentials: true,
   methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
   allowedHeaders: [
+    "Origin",
+    "X-Requested-With",
     "Content-Type",
+    "Accept",
     "Authorization",
-    "x-requested-with",
     "x-api-key",
+    "rte-ual-auth",
   ],
   preflightContinue: false,
   optionsSuccessStatus: 200,

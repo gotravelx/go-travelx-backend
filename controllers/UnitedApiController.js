@@ -19,7 +19,7 @@ dotenv.config();
 const tokenRefresher = new TokenRefresher(tokenConfig);
 
 export const fetchFlightData = async (flightNumber, options = {}) => {
-  try {
+    try {
     logger.info(
       `[API] Fetching flight ${flightNumber} , data from external API...`
     );
@@ -42,9 +42,12 @@ export const fetchFlightData = async (flightNumber, options = {}) => {
       url += `&arrival=${options.arrival}`;
     }
 
+
     logger.info(`[API] Fetching flight data from: [United API]`);
 
     let token = await tokenRefresher.getToken();
+    logger.info(`[API] token: ${token}`);
+
 
     if (!token) {
       throw new Error("Unable to obtain access token");
@@ -53,12 +56,17 @@ export const fetchFlightData = async (flightNumber, options = {}) => {
     const response = await fetch(url, {
       method: "GET",
       headers: {
+        "rte-ual-auth":"123",
         Accept: "application/json",
         Authorization: `Bearer ${token}`,
       },
       agent: agent, // Uncomment if you need this
-      timeout: 30000, // Note: fetch doesn't support timeout directly
+      timeout: 5000, // Note: fetch doesn't support timeout directly
     });
+
+    logger.info(`[API] response: ${response}`);
+
+
 
     if (!response.ok) {
       console.log(`HTTP error! status: ${response}`);
@@ -138,7 +146,7 @@ export const fetchFlightDetails = async (req, res) => {
     const { departureDate, departure, arrival, includeFullData } = req.query;
 
     const walletAddress = process.env.WALLET_ADDRESS;
-
+    
     const flightData = await fetchFlightData(flightNumber, {
       departureDate,
       departure,
