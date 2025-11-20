@@ -60,7 +60,7 @@ export const fetchFlightData = async (flightNumber, options = {}) => {
   const response = await fetch(url, {
     method: "GET",
     headers: {
-      "rte-ual-auth":"123",
+      "rte-ual-auth":"cnRlOlJ0RVAkNTV3MHJk",
       Accept: "application/json",
       Authorization: `Bearer ${token}`,
     },
@@ -68,6 +68,8 @@ export const fetchFlightData = async (flightNumber, options = {}) => {
     signal: controller.signal, // Note: fetch doesn't support timeout directly
   });
   clearTimeout(timeoutId);
+  
+  logger.info(`[API] response----------: ${response}`);
 
   if (!response.ok) {
     console.log(`HTTP error! status: ${response}`);
