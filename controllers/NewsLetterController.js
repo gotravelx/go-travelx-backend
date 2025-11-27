@@ -10,7 +10,8 @@ import {
   ========================================================== */
   export const createSubscriptionController = async (req, res) => {
     try {
-      const { email, categories = [] } = req.body;
+ 
+      const { email, categories = [],env } = req.body;
   
       if (!email)
         return res.status(400).json({ success: false, message: "Email is required" });
@@ -24,7 +25,7 @@ import {
         return res.status(400).json(result);
   
       // Auto-send welcome email
-      await sendNewsletterEmail(email);
+      await sendNewsletterEmail(email,env);
   
       return res.status(201).json({
         success: true,
