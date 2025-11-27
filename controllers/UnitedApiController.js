@@ -57,16 +57,23 @@ export const fetchFlightData = async (flightNumber, options = {}) => {
   const controller = new AbortController();           
   const timeoutId = setTimeout(() => controller.abort(), 30000);
 
+  const headers = {
+    "rte-ual-auth": "GTXRlZ3R4OkdUWFBBNRP",
+    "Accept": "application/json",
+    "Authorization": `Bearer ${token}`,
+  };
+
+  logger.info(`[API] FINAL URL: ${url}`);
+  logger.info(`[API] Request Headers: ${JSON.stringify(headers, null, 2)}`);
+  // -------------------------------
+
   const response = await fetch(url, {
     method: "GET",
-    headers: {
-      "rte-ual-auth":"cnRlOlJ0RVAkNTV3MHJk",
-      Accept: "application/json",
-      Authorization: `Bearer ${token}`,
-    },
-    agent: agent, // Uncomment if you need this
-    signal: controller.signal, // Note: fetch doesn't support timeout directly
+    headers,
+    agent: agent,
+    signal: controller.signal,
   });
+
   clearTimeout(timeoutId);
   
   logger.info(`[API] response----------: ${response}`);
@@ -147,6 +154,7 @@ export const fetchFlightDetails = async (req, res) => {
   try {
     const { flightNumber } = req.params;
     const { departureDate, departure, arrival, includeFullData } = req.query;
+
 
     const walletAddress = process.env.WALLET_ADDRESS;
     
