@@ -61,6 +61,7 @@ export const fetchFlightData = async (flightNumber, options = {}) => {
     "rte-ual-auth": "GTXRlZ3R4OkdUWFBBNRP",
     "Accept": "application/json",
     "Authorization": `Bearer ${token}`,
+    "User-Agent": "UnitedFlightService/1.0"
   };
 
   logger.info(`[API] FINAL URL: ${url}`);
