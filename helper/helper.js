@@ -4,7 +4,8 @@ import customLogger from "../utils/Logger.js";
 import { getCompressedFlightData } from "./compress-decompress.js";
 import dayjs from "dayjs";
 
-const flightSubscription = new DynamoDbOp("FlightSubscriptions", [
+const FLIGHT_SUBSCRIPTION_TABLE=process.env.FLIGHT_SUBSCRIPTION_TABLE || "FlightSubscriptions"
+const flightSubscription = new DynamoDbOp(FLIGHT_SUBSCRIPTION_TABLE, [
   "walletAddress",
   "flightNumber",
 ]);
