@@ -290,6 +290,9 @@ export const extractKeyFlightInfo = (flightData) => {
       flightData.flightData.FlightLegs?.[0]?.OperationalFlightSegments?.[0];
     const scheduledSegment =
       flightData.flightData.FlightLegs?.[0]?.ScheduledFlightSegments?.[0];
+    const getcarrieCode= flightData.flightData.FlightLegs?.[0]?.ScheduledFlightSegments[0]?.OperatingAirline?.IATACode
+    
+   
 
     if (!flight) {
       throw new Error("Invalid flight data structure");
@@ -325,7 +328,7 @@ export const extractKeyFlightInfo = (flightData) => {
       // Basic Flight Info
       flightNumber: flight.FlightNumber,
       departureDate: flight.DepartureDate,
-      carrierCode: "UA",
+      carrierCode: getcarrieCode,
       // Airports
       departureAirport: {
         code: operationalSegment?.DepartureAirport?.IATACode,

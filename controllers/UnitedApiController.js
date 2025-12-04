@@ -90,7 +90,7 @@ export const fetchFlightData = async (flightNumber, options = {}) => {
   logger.info(`Response status: ${response.status}`);
 
   if (data.info && data.info[0].cd === "200") {
-    const legs = data.flightStatusResp?.FlightLegs;
+    const legs = data?.flightStatusResp?.FlightLegs;
     const hasOperationalSegments =
       Array.isArray(legs) &&
       legs.length > 0 &&
