@@ -30,6 +30,10 @@ export const fetchFlightData = async (flightNumber, options = {}) => {
   }
 
   let url = `${process.env.API}?fltNbr=${flightNumber}`;
+  
+  if (options.carrier) {
+    url += `&carrier=${options.carrier}`;
+  }
 
   if (options.departureDate) {
     url += `&fltLegSchedDepDt=${options.departureDate}`;
@@ -154,7 +158,7 @@ export const fetchFlightData = async (flightNumber, options = {}) => {
 export const fetchFlightDetails = async (req, res) => {
   try {
     const { flightNumber } = req.params;
-    const { departureDate, departure, arrival, includeFullData } = req.query;
+    const { departureDate, departure, arrival, includeFullData,carrier } = req.query;
 
 
     const walletAddress = process.env.WALLET_ADDRESS;
@@ -163,6 +167,7 @@ export const fetchFlightDetails = async (req, res) => {
       departureDate,
       departure,
       arrival,
+      carrier
     });
 
     const keyFlightInfo = extractKeyFlightInfo(flightData);
