@@ -23,7 +23,10 @@ const sendNewsletterEmail = async (email, env = "prod") => {
 
   // ---- 3️⃣ Configure Mail Transport ----
   const transporter = nodemailer.createTransport({
-    service: "gmail",
+    // service: "gmail",
+    host: "smtp.zoho.com",
+    port: 465,
+    secure: true,
     auth: {
       user: process.env.SMTP_EMAIL,
       pass: process.env.SMTP_PASSCODE,
