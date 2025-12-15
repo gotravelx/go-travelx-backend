@@ -21,148 +21,150 @@ const tokenRefresher = new TokenRefresher(tokenConfig);
 
 export const fetchFlightData = async (flightNumber, options = {}) => {
   try {
-  logger.info(
-    `[API] Fetching flight ${flightNumber} , data from external API...`
-  );
+    logger.info(
+      `[API] Fetching flight ${flightNumber} , data from external API...`
+    );
 
-  if (!flightNumber) {
-    throw new Error("Flight number is required");
-  }
+    if (!flightNumber) {
+      throw new Error("Flight number is required");
+    }
 
-  let url = `${process.env.API}?fltNbr=${flightNumber}`;
-  
-  if (options.carrier) {
-    url += `&carrier=${options.carrier}`;
-  }
+    let url = `${process.env.API}?fltNbr=${flightNumber}`;
 
-  if (options.departureDate) {
-    url += `&fltLegSchedDepDt=${options.departureDate}`;
-  }
+    if (options.carrier) {
+      url += `&carrier=${options.carrier}`;
+    }
 
-  if (options.departure) {
-    url += `&departure=${options.departure}`;
-  }
+    if (options.departureDate) {
+      url += `&fltLegSchedDepDt=${options.departureDate}`;
+    }
 
-  if (options.arrival) {
-    url += `&arrival=${options.arrival}`;
-  }
+    if (options.departure) {
+      url += `&departure=${options.departure}`;
+    }
+
+    if (options.arrival) {
+      url += `&arrival=${options.arrival}`;
+    }
 
 
-  logger.info(`[API] Fetching flight data from: [United API]`);
+    logger.info(`[API] Fetching flight data from: [United API]`);
 
-  let token = await tokenRefresher.getToken();
+    let token = await tokenRefresher.getToken();
 
-  logger.info(`[API] token----------: ${token}`);
+    logger.info(`[API] token----------: ${token}`);
 
-  if (!token) {
-    throw new Error("Unable to obtain access token");
-  }
+    if (!token) {
+      throw new Error("Unable to obtain access token");
+    }
 
-  const controller = new AbortController();           
-  const timeoutId = setTimeout(() => controller.abort(), 30000);
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 30000);
 
-  const headers = {
-    "rte-ual-auth": "GTXRlZ3R4OkdUWFBBNRP",
-    "Accept": "application/json",
-    "Authorization": `Bearer ${token}`,
-    "User-Agent": "UnitedFlightService/1.0"
-  };
+    const headers = {
+      "rte-ual-auth": "GTXRlZ3R4OkdUWFBBNRP",
+      "Accept": "application/json",
+      "Authorization": `Bearer ${token}`,
+      "User-Agent": "UnitedFlightService/1.0"
+    };
 
-  logger.info(`[API] FINAL URL: ${url}`);
-  logger.info(`[API] Request Headers: ${JSON.stringify(headers, null, 2)}`);
-  // -------------------------------
+    logger.info(`[API] FINAL URL: ${url}`);
+    logger.info(`[API] Request Headers: ${JSON.stringify(headers, null, 2)}`);
+    // -------------------------------
 
-  const response = await fetch(url, {
-    method: "GET",
-    headers,
-    agent: agent,
-    signal: controller.signal,
-  });
+    const response = await fetch(url, {
+      method: "GET",
+      headers,
+      agent: agent,
+      signal: controller.signal,
+    });
 
-  clearTimeout(timeoutId);
-  
-  logger.info(`[API] response----------: ${response}`);
+    clearTimeout(timeoutId);
 
-  if (!response.ok) {
-    console.log(`HTTP error! status: ${response}`);
-    
-    throw new Error(`HTTP error! status: ${response.status}`);
-  }
+    logger.info(`[API] response----------: ${response}`);
 
-  const data = await response.json();
+    if (!response.ok) {
+      console.log(`HTTP error! status: ${response}`);
 
-  logger.info(`Response status: ${response.status}`);
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
 
-  if (data.info && data.info[0].cd === "200") {
-    const legs = data?.flightStatusResp?.FlightLegs;
-    const hasOperationalSegments =
-      Array.isArray(legs) &&
-      legs.length > 0 &&
-      Array.isArray(legs[0].OperationalFlightSegments) &&
-      legs[0].OperationalFlightSegments.length > 0;
+    const data = await response.json();
 
-    if (!hasOperationalSegments) {
-      logger.warn("[UNITED API] No flight legs found in response");
+    logger.info(`Response status: ${response.status}`);
+
+
+    if (data.info && data.info[0].cd === "200") {
+      const legs = data?.flightStatusResp?.FlightLegs;
+      const hasOperationalSegments =
+        Array.isArray(legs) &&
+        legs.length > 0 &&
+        Array.isArray(legs[0].OperationalFlightSegments) &&
+        legs[0].OperationalFlightSegments.length > 0;
+
+
+      if (!hasOperationalSegments) {
+        logger.warn("[UNITED API] No flight legs found in response");
+        return {
+          success: false,
+          errorMessage: "Flight legs are not defined or empty",
+        };
+      }
+      const flightNumber = data.flightStatusResp?.Flight?.FlightNumber || "N/A";
+      const from =
+        data.flightStatusResp?.FlightLegs?.[0]?.OperationalFlightSegments?.[0]
+          ?.DepartureAirport?.Name || "N/A";
+      const to =
+        data.flightStatusResp?.FlightLegs?.[0]?.OperationalFlightSegments?.[0]
+          ?.ArrivalAirport?.Name || "N/A";
+
+      logger.info(
+        `[UNITED API] Flight data fetched successfully Flight Number: ${flightNumber} From: ${from} To: ${to}`
+      );
       return {
-        success: false,
-        errorMessage: "Flight legs are not defined or empty",
+        success: true,
+        flightData: data?.flightStatusResp,
       };
     }
-    const flightNumber = data.flightStatusResp?.Flight?.FlightNumber || "N/A";
-    const from =
-      data.flightStatusResp?.FlightLegs?.[0]?.OperationalFlightSegments?.[0]
-        ?.DepartureAirport?.Name || "N/A";
-    const to =
-      data.flightStatusResp?.FlightLegs?.[0]?.OperationalFlightSegments?.[0]
-        ?.ArrivalAirport?.Name || "N/A";
 
-    logger.info(
-      `[UNITED API] Flight data fetched successfully Flight Number: ${flightNumber} From: ${from} To: ${to}`
-    );
-    return {
-      success: true,
-      flightData: data?.flightStatusResp,
-    };
-  }
+    if (data.info && data.info[0].cd === "404") {
+      logger.warn("[UNITED API] Flight not found");
+      return {
+        success: false,
+        errorMessage: "Flight not found",
+      };
+    }
 
-  if (data.info && data.info[0].cd === "404") {
-    logger.warn("[UNITED API] Flight not found");
-    return {
-      success: false,
-      errorMessage: "Flight not found",
-    };
-  }
+    if (data.info && data.info[0].cd === "500") {
+      logger.error("[UNITED API] Internal server error");
+      return {
+        success: false,
+        errorMessage: "Internal server error",
+      };
+    }
+  } catch (error) {
+    logger.error("[API] Error fetching flight data:", error);
+    console.log("[API] Error fetching flight data:", error);
 
-  if (data.info && data.info[0].cd === "500") {
-    logger.error("[UNITED API] Internal server error");
     return {
       success: false,
-      errorMessage: "Internal server error",
+      errorMessage:
+        "An error occurred while checking flight status. Please try again later.",
+      errorDetails: {
+        description: error.message,
+      },
     };
   }
-} catch (error) {
-  logger.error("[API] Error fetching flight data:", error);
-  console.log("[API] Error fetching flight data:", error);
-  
-  return {
-    success: false,
-    errorMessage:
-      "An error occurred while checking flight status. Please try again later.",
-    errorDetails: {
-      description: error.message,
-    },
-  };
-}
 };
 
 export const fetchFlightDetails = async (req, res) => {
   try {
     const { flightNumber } = req.params;
-    const { departureDate, departure, arrival, includeFullData,carrier } = req.query;
+    const { departureDate, departure, arrival, includeFullData, carrier } = req.query;
 
 
     const walletAddress = process.env.WALLET_ADDRESS;
-    
+
     const flightData = await fetchFlightData(flightNumber, {
       departureDate,
       departure,
