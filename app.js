@@ -300,6 +300,8 @@ import cookieParser from "cookie-parser";
 import cors from "cors";
 import FlightRouter from "./routes/FlightEventRoutes.js";
 import authRouter from "./routes/authRoutes.js";
+import NewsLetterRoutes from "./routes/newsletterRoutes.js";
+
 import logger from "./utils/Logger.js";
 import { connectDynamoDB } from "./config/Dynamodb.js";
 import TokenRefresher from "./helper/0authTokenManager.js";
@@ -417,6 +419,8 @@ logger.info(`Allowed origins: ${allowedOrigins.length} configured`);
 app.use(`/${version}/auth`, authRouter);
 app.use(`/${version}/flights`, FlightRouter);
 app.use(`/${version}/subscription`, SubscriptionRouter);
+app.use(`/${version}/newsletter`, NewsLetterRoutes);
+
 
 /* ==================== HEALTH CHECK ==================== */
 app.get("/health", (req, res) => {
