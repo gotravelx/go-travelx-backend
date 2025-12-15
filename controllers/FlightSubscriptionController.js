@@ -33,7 +33,7 @@ export const createFlightSubscriptionTable = async (req, res) => {
     });
   } catch (error) {
     if (error.code === "ResourceInUseException") {
-       logger.info("INFO:[DYNAMODB] Table already exists:",
+      logger.info("INFO:[DYNAMODB] Table already exists:",
         FlightSubscriptionModel.TableName
       );
 
@@ -143,7 +143,7 @@ export const addFlightSubscription = async (req, res) => {
       customLogger.info(
         `[SUBSCRIPTION] User already subscribed to flight ${flightNumber} (Database)`
       );
-      
+
       return res.status(200).json({
         success: true,
         flightNumber,
@@ -192,6 +192,7 @@ export const addFlightSubscription = async (req, res) => {
       departureDate,
       departure: departureAirport,
       arrival: arrivalAirport,
+      carrier: carrierCode
     });
 
     if (!flightDataResponse?.success) {
