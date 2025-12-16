@@ -148,13 +148,13 @@ export const getBlockchainData = async (flightStatusResp) => {
         "Failed to compress flight data:",
         compressionError.message
       );
-      
+
       compressedFlightData = "";
     }
 
     // Extract individual values with proper validation and sanitization
     const flightNumber = String(flight.FlightNumber || "").trim();
-    const flightCarrierCode = "UA";
+    const flightCarrierCode = carrierCode || "UA";
     const rawDate = flight.FlightOriginationDate || flight.DepartureDate || "";
     const originateDate = rawDate ? dayjs(rawDate).format("YYYY-MM-DD") : "";
 
@@ -291,6 +291,9 @@ export const extractKeyFlightInfo = (flightData) => {
       flightData.flightData.FlightLegs?.[0]?.OperationalFlightSegments?.[0];
     const scheduledSegment =
       flightData.flightData.FlightLegs?.[0]?.ScheduledFlightSegments?.[0];
+    const getcarrieCode = flightData.flightData.FlightLegs?.[0]?.ScheduledFlightSegments[0]?.OperatingAirline?.IATACode
+
+
 
     if (!flight) {
       throw new Error("Invalid flight data structure");
@@ -326,7 +329,7 @@ export const extractKeyFlightInfo = (flightData) => {
       // Basic Flight Info
       flightNumber: flight.FlightNumber,
       departureDate: flight.DepartureDate,
-      carrierCode: "UA",
+      carrierCode: getcarrieCode,
       // Airports
       departureAirport: {
         code: operationalSegment?.DepartureAirport?.IATACode,
