@@ -83,6 +83,7 @@ export const fetchFlightData = async (flightNumber, options = {}) => {
 
     logger.info(`[API] response----------: ${response}`);
 
+
     if (!response.ok) {
       console.log(`HTTP error! status: ${response}`);
 
@@ -153,26 +154,19 @@ export const fetchFlightData = async (flightNumber, options = {}) => {
 
     if (data.info && data.info[0].cd === "500") {
       logger.error("[UNITED API] Internal server error");
-      return {
-        success: false,
-        errorMessage: "Internal server error",
-      };
+      throw new Error("Internal server error");
     }
   } catch (error) {
     logger.error("[API] Error fetching flight data:", error);
-    console.log("[API] Error fetching flight data:", error);
 
     if (error.name === "AbortError") {
       error.code = "ETIMEDOUT";
     }
-    return {
-      success: false,
-      errorMessage:
-        "An error occurred while checking flight status. Please try again later.",
-      errorDetails: {
-        description: error.message,
-      },
-    };
+
+    if (!error.status) {
+      error.status = 500;
+    }
+    throw error;
   }
 };
 

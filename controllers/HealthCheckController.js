@@ -74,11 +74,9 @@ const sendAlertEmail = async (errorDetails) => {
 
 const isCriticalError = (error) => {
     // HTTP status errors
-    if (error.response?.status) {
-        const status = error.response.status;
-
-        if (status >= 500) return true;
-        if ([401, 403, 404].includes(status)) return true;
+    if (error.status) {
+        if (error.status >= 500) return true;
+        if ([401, 403, 404].includes(error.status)) return true;
     }
 
     // Network / timeout / DNS
@@ -99,9 +97,12 @@ const isCriticalError = (error) => {
     ];
     if (sslCodes.includes(error.code)) return true;
 
-    // Fallback: timeout text
-    if (typeof error.message === "string" && error.message.toLowerCase().includes("timeout")) {
-        return true;
+    // Fallback: timeout text or internal server error
+    if (typeof error.message === "string") {
+        const lowerMsg = error.message.toLowerCase();
+        if (lowerMsg.includes("timeout") || lowerMsg.includes("internal server error")) {
+            return true;
+        }
     }
 
     return false;
@@ -113,6 +114,9 @@ export const startHealthCheckMonitoring = () => {
 
     scheduleJob.scheduleJob(POLLING_CRON, async () => {
         try {
+            customLogger.info("[HEALTH-CHECK] ----------------------------------------");
+            customLogger.info("[HEALTH-CHECK] Starting scheduled health check...");
+            console.log("await processFlightsHealthCheck();");
             await processFlightsHealthCheck();
 
             if (consecutiveFailures > 0) {
@@ -130,6 +134,7 @@ export const startHealthCheckMonitoring = () => {
                 consecutiveFailures >= 3 &&
                 now - lastAlertTime >= ALERT_INTERVAL_MS
             ) {
+                customLogger.error(`[HEALTH-CHECK] Alerting due to ${consecutiveFailures} consecutive failures`);
                 await sendAlertEmail(error.message);
                 lastAlertTime = now;
             }
@@ -140,13 +145,14 @@ export const startHealthCheckMonitoring = () => {
 
 const processFlightsHealthCheck = async () => {
     const today = new Date().toISOString().split("T")[0];
-
     const response = await fetchFlightData(2053, {
         departureDate: today,
         departure: "CLE",
         arrival: "EWR",
         carrier: "UA",
     });
+
+    customLogger.info(`[HEALTH-CHECK] Probe response received. Success: ${response?.success}`);
 
     if (!response || typeof response !== "object") {
         throw new Error("No valid response from Flight Status service");
@@ -161,3 +167,4 @@ const processFlightsHealthCheck = async () => {
 
     return true;
 };
+
