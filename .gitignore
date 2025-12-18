@@ -43,3 +43,9 @@ yarn-error.log*
 .env.local
 .env.development
 .env.test
+
+# Jest HTML Reporter
+jest-html-reporter/
+jest_html_reporters/
+*.html
+*.json

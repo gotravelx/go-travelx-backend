@@ -13,7 +13,7 @@
 
 // // Load environment variables first
 // dotenv.config();
- 
+
 // // Environment configuration
 // const ENV = process.env.NODE_ENV || 'local';
 // const isLocalEnv = ENV === 'local';
@@ -24,7 +24,7 @@
 //   logger.info(`Setting up ${ENV.toUpperCase()} environment with local DynamoDB`);  
 //   process.env.AWS_REGION = "us-east-1";
 //   process.env.DYNAMO_ENDPOINT = "http://localhost:8000";
-  
+
 //   logger.info("Local DynamoDB credentials configured");
 //   logger.info(`DynamoDB endpoint: ${process.env.DYNAMO_ENDPOINT}`);
 // } else {
@@ -201,7 +201,7 @@
 //   const errorId = Date.now().toString(36);
 //   logger.error(`[${errorId}] Error: ${err.message}`);
 //   logger.error(`[${errorId}] Stack: ${err.stack}`);
-  
+
 //   if (isLocalEnv || isDevEnv) {
 //     res.status(500).json({
 //       errorId,
@@ -235,7 +235,7 @@
 // const startServer = async () => {
 //   logger.info("Starting server...");
 //   logger.info(`Environment: ${ENV}`);
-  
+
 //   try {
 //     /* ================== DynamoDB Connection ================== */
 //     logger.info("Connecting to DynamoDB...");
@@ -244,7 +244,7 @@
 
 //     /* ================== Token Refresher - Environment Specific ================== */
 //     const shouldInitializeTokenRefresher = !isLocalEnv; // Skip in local only
-    
+
 //     if (shouldInitializeTokenRefresher) {
 //       logger.info("Initializing Token Refresher...");
 //       new TokenRefresher(tokenConfig);
@@ -262,7 +262,7 @@
 //       logger.info(`Token Refresher: ${shouldInitializeTokenRefresher ? 'Enabled' : 'Disabled'}`);
 //       logger.info("Server started successfully!");
 //     });
-    
+
 //   } catch (error) {
 //     logger.error("Server startup failed:", error.message);
 //     logger.error("Stack:", error.stack);
@@ -308,6 +308,7 @@ import TokenRefresher from "./helper/0authTokenManager.js";
 import tokenConfig from "./config/0authTokenConfig.js";
 import SubscriptionRouter from "./routes/SubscritionRoutes.js";
 import helmet from "helmet";
+import { startHealthCheckMonitoring } from "./controllers/HealthCheckController.js";
 
 // Load environment variables first
 dotenv.config();
@@ -500,6 +501,9 @@ const startServer = async () => {
     } else {
       logger.info("Skipping Token Refresher in local environment");
     }
+
+    // Start Health Check Monitoring
+    startHealthCheckMonitoring();
 
     app.listen(PORT, () => {
       logger.info(`🚀 Server running on port ${PORT}`);

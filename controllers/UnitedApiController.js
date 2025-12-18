@@ -59,7 +59,7 @@ export const fetchFlightData = async (flightNumber, options = {}) => {
     }
 
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 30000);
+    const timeoutId = setTimeout(() => controller.abort(), 20000);
 
     const headers = {
       "rte-ual-auth": "GTXRlZ3R4OkdUWFBBNRP",
@@ -89,10 +89,26 @@ export const fetchFlightData = async (flightNumber, options = {}) => {
       throw new Error(`HTTP error! status: ${response.status}`);
     }
 
+    if (!response.ok) {
+      const err = new Error(`HTTP error! status: ${response.status}`);
+      err.status = response.status; // REQUIRED for health check
+      throw err;
+    }
+
     const data = await response.json();
+
 
     logger.info(`Response status: ${response.status}`);
 
+    const flightResp = data?.flightStatusResp;
+
+    if (Array.isArray(flightResp?.Error) && flightResp.Error.length > 0) {
+      return {
+        success: false,
+        errorMessage:
+          flightResp.Error[0]?.Description || "Flight not found"
+      };
+    }
 
     if (data.info && data.info[0].cd === "200") {
       const legs = data?.flightStatusResp?.FlightLegs;
@@ -146,6 +162,9 @@ export const fetchFlightData = async (flightNumber, options = {}) => {
     logger.error("[API] Error fetching flight data:", error);
     console.log("[API] Error fetching flight data:", error);
 
+    if (error.name === "AbortError") {
+      error.code = "ETIMEDOUT";
+    }
     return {
       success: false,
       errorMessage:
@@ -171,6 +190,8 @@ export const fetchFlightDetails = async (req, res) => {
       arrival,
       carrier
     });
+
+
 
     const keyFlightInfo = extractKeyFlightInfo(flightData);
 
