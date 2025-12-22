@@ -14,7 +14,7 @@ const options = {
                 description: 'Local server',
             },
             {
-                url: 'https://dev.gotravelx.com/v1',
+                url: 'https://api.gotravelx.com/v1',
                 description: 'production server',
             },
             {
@@ -22,11 +22,11 @@ const options = {
                 description: 'Development server',
             },
             {
-                url: 'https://qa.gotravelx.com/v1',
+                url: 'https://api.qa.gotravelx.com/v1',
                 description: 'QA server',
             },
             {
-                url: 'https://stg.gotravelx.com/v1',
+                url: 'https://api.stg.gotravelx.com/v1',
                 description: 'Staging server',
             },
         ],
