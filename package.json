@@ -37,6 +37,8 @@
     "node-schedule": "^2.1.1",
     "nodemailer": "^7.0.10",
     "nodemon": "^3.1.9",
+    "swagger-jsdoc": "^6.2.8",
+    "swagger-ui-express": "^5.0.1",
     "web3": "^4.16.0",
     "web3-core": "^4.7.1"
   },
