@@ -115,7 +115,7 @@ const corsOptions = {
       callback(null, true);
     } else {
       logger.warn(`🚫 CORS blocked origin: ${origin}`);
-      callback(null, true); // Allow temporarily
+      callback(null, true);
     }
   },
   credentials: true,

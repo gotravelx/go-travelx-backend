@@ -1,6 +1,6 @@
 import { getDocumentClient, getDynamoClient } from "../config/Dynamodb.js";
 
-const TABLE_NAME = "NewsletterSubscriptions";
+const TABLE_NAME = process.env.NEWSLETTER_TABLE || "NewsletterSubscriptions";
 
 // Use your existing DynamoDbOp wrapper
 import DynamoDbOp from "../services/DynamodbOperations.js";
@@ -53,9 +53,9 @@ export const updateNewsletterSubscription = async (email, updates = {}) => {
       return { success: false, message: "Email not found" };
     }
     if (existing.subscribed === false) {
-      return { 
-        success: false, 
-        message: "You are already unsubscribed. Please subscribe first." 
+      return {
+        success: false,
+        message: "You are already unsubscribed. Please subscribe first."
       };
     }
     const updateItem = {

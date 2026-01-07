@@ -62,7 +62,7 @@ export const createFlightSubscriptionTable = async (req, res) => {
 /* ====================== Clear Flight Subscription Api =============================== */
 
 export const clearFlightSubscriptionTableData = async (req, res) => {
-  const tableName = "FlightSubscriptions";
+  const tableName = process.env.FLIGHT_SUBSCRIPTION_TABLE || "FlightSubscriptions";
 
   try {
     const items = await subscribeDb.findMany();
