@@ -1,40 +1,65 @@
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
-import { getDocumentClient,getDynamoClient } from "../config/Dynamodb.js";
+import { getDocumentClient, getDynamoClient } from "../config/Dynamodb.js";
 const JWT_SECRET = process.env.JWT_SECRET || "SECRET";
-const REFRESH_SECRET = process.env.REFRESH_SECRET || "REFRESH_SECRET"; 
+const REFRESH_SECRET = process.env.REFRESH_SECRET || "REFRESH_SECRET";
 
-const USERS_TABLE = "Users";
+const USERS_TABLE = process.env.USERS_TABLE || "Users";
 const DEFAULT_ADMIN = {
   username: "admin",
-  password: "$2b$12$B1ydFnmUcaNhP9Z3Xf3AgeRNSSgZAE1jN/khbZbbl0Bqb9/Z3yqtC", 
+  password: "$2b$12$B1ydFnmUcaNhP9Z3Xf3AgeRNSSgZAE1jN/khbZbbl0Bqb9/Z3yqtC",
 };
 const ensureUsersTableExists = async () => {
   const dynamoClient = getDynamoClient();
   const docClient = getDocumentClient();
 
   try {
-    await dynamoClient.describeTable({ TableName: "Users" }).promise();
+    await dynamoClient
+      .describeTable({ TableName: USERS_TABLE })
+      .promise();
   } catch (err) {
     if (err.code === "ResourceNotFoundException") {
-      await dynamoClient.createTable({
-        TableName: USERS_TABLE,
-        KeySchema: [{ AttributeName: "username", KeyType: "HASH" }],
-        AttributeDefinitions: [{ AttributeName: "username", AttributeType: "S" }],
-        BillingMode: "PAY_PER_REQUEST",
-      }).promise();
+      await dynamoClient
+        .createTable({
+          TableName: USERS_TABLE,
+          KeySchema: [
+            { AttributeName: "username", KeyType: "HASH" }
+          ],
+          AttributeDefinitions: [
+            { AttributeName: "username", AttributeType: "S" }
+          ],
+          BillingMode: "PAY_PER_REQUEST",
+        })
+        .promise();
 
-      await dynamoClient.waitFor("tableExists", { TableName: "Users" }).promise();
-
-      await docClient.put({
-        TableName: "Users",
-        Item: DEFAULT_ADMIN
-      }).promise();
+      await dynamoClient
+        .waitFor("tableExists", { TableName: USERS_TABLE })
+        .promise();
     } else {
       throw err;
     }
   }
+
+  const existingUser = await docClient
+    .get({
+      TableName: USERS_TABLE,
+      Key: {
+        username: DEFAULT_ADMIN.username,
+      },
+    })
+    .promise();
+
+  if (!existingUser.Item) {
+    await docClient
+      .put({
+        TableName: USERS_TABLE,
+        Item: DEFAULT_ADMIN,
+        ConditionExpression: "attribute_not_exists(username)",
+      })
+      .promise();
+  }
 };
+
 
 
 const generateAccessToken = (user) => {
@@ -51,13 +76,13 @@ export const authLogin = async (req, res) => {
   try {
     const { username, password } = req.body;
     if (!username || !password) return res.status(400).json({ error: "Username and password required" });
-   
+
     // Ensure table exists
     await ensureUsersTableExists();
 
     const docClient = getDocumentClient();
     const result = await docClient.get({
-      TableName: "Users",
+      TableName: USERS_TABLE,
       Key: { username },
     }).promise();
 

@@ -8,7 +8,8 @@
     "test": "jest --coverage",
     "start": "NODE_ENV=prod VERSION=v1 node app.js",
     "local": "NODE_ENV=local VERSION=v1 DYNAMO_ENDPOINT=http://localhost:8000 nodemon app.js",
-    "dev": "NODE_ENV=dev VERSION=v1 DYNAMO_ENDPOINT=http://localhost:8000 nodemon app.js"
+    "dev": "NODE_ENV=dev VERSION=v1 DYNAMO_ENDPOINT=http://localhost:8000 nodemon app.js",
+    "build": "echo \"Node.js backend has no build step\""
   },
   "keywords": [],
   "author": "",
@@ -34,7 +35,10 @@
     "mongoose": "^8.11.0",
     "node-fetch": "^3.3.2",
     "node-schedule": "^2.1.1",
+    "nodemailer": "^7.0.10",
     "nodemon": "^3.1.9",
+    "swagger-jsdoc": "^6.2.8",
+    "swagger-ui-express": "^5.0.1",
     "web3": "^4.16.0",
     "web3-core": "^4.7.1"
   },

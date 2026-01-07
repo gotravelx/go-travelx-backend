@@ -40,7 +40,7 @@ export const createFlightEventTable = async () => {
 /* ========================= CLEAR TABLE DATA START ========================*/
 
 export const clearFlightEventTableData = async () => {
-  const tableName = "FlightEvents";
+  const tableName = process.env.FLIGHT_EVENTS_TABLE || "FlightEvents";
 
   try {
     // Use the wrapper method to get all items

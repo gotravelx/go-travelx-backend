@@ -18,6 +18,7 @@ dotenv.config();
 
 const tokenRefresher = new TokenRefresher(tokenConfig);
 
+
 export const fetchFlightData = async (flightNumber, options = {}) => {
   try {
     logger.info(
@@ -29,6 +30,10 @@ export const fetchFlightData = async (flightNumber, options = {}) => {
     }
 
     let url = `${process.env.API}?fltNbr=${flightNumber}`;
+
+    if (options.carrier) {
+      url += `&carrier=${options.carrier}`;
+    }
 
     if (options.departureDate) {
       url += `&fltLegSchedDepDt=${options.departureDate}`;
@@ -42,27 +47,45 @@ export const fetchFlightData = async (flightNumber, options = {}) => {
       url += `&arrival=${options.arrival}`;
     }
 
+
     logger.info(`[API] Fetching flight data from: [United API]`);
 
     let token = await tokenRefresher.getToken();
+
+    logger.info(`[API] token----------: ${token}`);
 
     if (!token) {
       throw new Error("Unable to obtain access token");
     }
 
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 30000);
+
+    const headers = {
+      "rte-ual-auth": "GTXRlZ3R4OkdUWFBBNRP",
+      "Accept": "application/json",
+      "Authorization": `Bearer ${token}`,
+      "User-Agent": "UnitedFlightService/1.0"
+    };
+
+    logger.info(`[API] FINAL URL: ${url}`);
+    logger.info(`[API] Request Headers: ${JSON.stringify(headers, null, 2)}`);
+    // -------------------------------
+
     const response = await fetch(url, {
       method: "GET",
-      headers: {
-        Accept: "application/json",
-        Authorization: `Bearer ${token}`,
-      },
-      agent: agent, // Uncomment if you need this
-      timeout: 30000, // Note: fetch doesn't support timeout directly
+      headers,
+      agent: agent,
+      signal: controller.signal,
     });
+
+    clearTimeout(timeoutId);
+
+    logger.info(`[API] response----------: ${response}`);
 
     if (!response.ok) {
       console.log(`HTTP error! status: ${response}`);
-      
+
       throw new Error(`HTTP error! status: ${response.status}`);
     }
 
@@ -70,13 +93,15 @@ export const fetchFlightData = async (flightNumber, options = {}) => {
 
     logger.info(`Response status: ${response.status}`);
 
+
     if (data.info && data.info[0].cd === "200") {
-      const legs = data.flightStatusResp?.FlightLegs;
+      const legs = data?.flightStatusResp?.FlightLegs;
       const hasOperationalSegments =
         Array.isArray(legs) &&
         legs.length > 0 &&
         Array.isArray(legs[0].OperationalFlightSegments) &&
         legs[0].OperationalFlightSegments.length > 0;
+
 
       if (!hasOperationalSegments) {
         logger.warn("[UNITED API] No flight legs found in response");
@@ -120,7 +145,7 @@ export const fetchFlightData = async (flightNumber, options = {}) => {
   } catch (error) {
     logger.error("[API] Error fetching flight data:", error);
     console.log("[API] Error fetching flight data:", error);
-    
+
     return {
       success: false,
       errorMessage:
@@ -135,7 +160,8 @@ export const fetchFlightData = async (flightNumber, options = {}) => {
 export const fetchFlightDetails = async (req, res) => {
   try {
     const { flightNumber } = req.params;
-    const { departureDate, departure, arrival, includeFullData } = req.query;
+    const { departureDate, departure, arrival, includeFullData, carrier } = req.query;
+
 
     const walletAddress = process.env.WALLET_ADDRESS;
 
@@ -143,6 +169,7 @@ export const fetchFlightDetails = async (req, res) => {
       departureDate,
       departure,
       arrival,
+      carrier
     });
 
     const keyFlightInfo = extractKeyFlightInfo(flightData);
@@ -176,3 +203,4 @@ export const fetchFlightDetails = async (req, res) => {
     });
   }
 };
+

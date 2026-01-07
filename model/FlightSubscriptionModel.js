@@ -1,8 +1,10 @@
 import DynamoDbOp from "../services/DynamodbOperations.js";
 
-export const subscribeDb = new DynamoDbOp("FlightSubscriptions", ["flightNumber","walletAddress"]);
+const FLIGHT_SUBSCRIPTION_TABLE=process.env.FLIGHT_SUBSCRIPTION_TABLE || "FlightSubscriptions"
 
-const TABLE_NAME = "FlightSubscriptions";
+export const subscribeDb = new DynamoDbOp(FLIGHT_SUBSCRIPTION_TABLE, ["flightNumber","walletAddress"]);
+
+const TABLE_NAME = FLIGHT_SUBSCRIPTION_TABLE;
 
 /* =================== Defines the table schema  ===================*/
 

@@ -7,7 +7,8 @@ import { fetchFlightData } from "./UnitedApiController.js";
 import { updateFlightEvent } from "../model/FlightEventModel.js";
 
 // Initialize DynamoDB operations
-const flightEventDb = new DynamoDbOp("FlightEvents", "flightNumber");
+const FLIGHT_EVENTS_TABLE=process.env.FLIGHT_EVENTS_TABLE || "FlightEvents";
+const flightEventDb = new DynamoDbOp(FLIGHT_EVENTS_TABLE, "flightNumber");
 
 // Define valid flight status transitions
 const validTransitions = {

@@ -1,8 +1,9 @@
 import DynamoDbOp from "../services/DynamodbOperations.js";
+const FLIGHT_EVENTS_TABLE=process.env.FLIGHT_EVENTS_TABLE || "FlightEvents";
 
-export const flightDb = new DynamoDbOp("FlightEvents", "flightNumber");
+export const flightDb = new DynamoDbOp(FLIGHT_EVENTS_TABLE, "flightNumber");
 
-const TABLE_NAME = "FlightEvents";
+const TABLE_NAME = FLIGHT_EVENTS_TABLE;
 
 /* ======================== FlightEvent Definition. ======================== */
 
