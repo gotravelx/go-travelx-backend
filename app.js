@@ -7,6 +7,7 @@ import cors from "cors";
 import FlightRouter from "./routes/FlightEventRoutes.js";
 import authRouter from "./routes/authRoutes.js";
 import NewsLetterRoutes from "./routes/newsletterRoutes.js";
+import carrierRoutes from "./routes/carrierRoutes.js";
 
 import logger from "./utils/Logger.js";
 import { connectDynamoDB } from "./config/Dynamodb.js";
@@ -151,6 +152,8 @@ app.use(`/${version}/auth`, authRouter);
 app.use(`/${version}/flights`, FlightRouter);
 app.use(`/${version}/subscription`, SubscriptionRouter);
 app.use(`/${version}/newsletter`, NewsLetterRoutes);
+logger.info(`Registering carrier routes at /${version}/carriers`);
+app.use(`/${version}/carriers`, carrierRoutes);
 
 /* ==================== SWAGGER DOCS ==================== */
 import swaggerUi from "swagger-ui-express";
