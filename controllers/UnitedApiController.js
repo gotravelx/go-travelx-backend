@@ -128,10 +128,12 @@ export const fetchFlightData = async (flightNumber, options = {}) => {
     }
 
     if (data.info && data.info[0].cd === "404") {
-      logger.warn("[UNITED API] Flight not found");
+      const carrier = options.carrier || "UA";
+      const msg = `${carrier} WITH ${flightNumber} NOT FOUND`;
+      logger.warn(`[UNITED API] ${msg}`);
       return {
         success: false,
-        errorMessage: "Flight not found",
+        errorMessage: msg,
       };
     }
 
@@ -171,6 +173,11 @@ export const fetchFlightDetails = async (req, res) => {
       arrival,
       carrier
     });
+
+
+    if (!flightData.success) {
+      return res.status(404).json(flightData);
+    }
 
     const keyFlightInfo = extractKeyFlightInfo(flightData);
 

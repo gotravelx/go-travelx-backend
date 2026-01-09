@@ -358,18 +358,6 @@ export class FlightBlockchainService {
       throw new Error("Wallet not configured for transactions");
     }
 
-    this.isFlightExist(flightNumber, carrierCode).then((exists) => {
-      if (exists) {
-        customLogger.info(
-          `[Blockchain] Flight exists: This flight ${carrierCode}${flightNumber} is present in Blockchain`
-        );
-      } else {
-        customLogger.info(
-          `[Blockchain] Flight exists: This flight ${carrierCode}${flightNumber} is not present in Blockchain`
-        );
-      }
-    });
-
     try {
       const tx = await this.contractWithSigner.addFlightSubscription(
         flightNumber,
@@ -400,7 +388,7 @@ export class FlightBlockchainService {
     if (!this.contractWithSigner) {
       throw new Error("Wallet not configured for transactions");
     }
-    
+
     try {
       // Validate input arrays
       if (
@@ -423,7 +411,7 @@ export class FlightBlockchainService {
         customLogger.info(`Flight Numbers: ${flight}`);
       });
 
-      
+
       departureAirports.map((flight) => {
         customLogger.info(`DepartureAirports: ${flight}`);
       });
@@ -681,16 +669,16 @@ export class FlightBlockchainService {
     if (!this.contractWithSigner) {
       throw new Error("Wallet not configured for transactions");
     }
-  
+
     try {
       if (!Array.isArray(flightInputs) || flightInputs.length === 0) {
         throw new Error("No flight data provided for batch insert");
       }
-  
+
       if (flightInputs.length > 100) {
         throw new Error("Too many flights in batch (max 100 allowed)");
       }
-  
+
       // Validate each flight input
       for (const input of flightInputs) {
         if (
@@ -702,7 +690,7 @@ export class FlightBlockchainService {
             `Invalid flightDetails array, expected 10 elements, got ${input.flightDetails?.length}`
           );
         }
-  
+
         // Ensure required fields are not empty
         const requiredFields = [0, 1, 2, 3, 4]; // carrierCode, flightNumber, originateDate, arrivalAirport, departureAirport
         for (const idx of requiredFields) {
@@ -710,25 +698,25 @@ export class FlightBlockchainService {
             throw new Error(`Required flight field at index ${idx} is empty`);
           }
         }
-  
+
         if (typeof input.compressedFlightInformation !== "string") {
           throw new Error("Invalid compressedFlightInformation");
         }
       }
-  
+
       // Send batch transaction
       const tx = await this.contractWithSigner.storeMultipleFlightDetails(
         flightInputs
       );
-  
+
       customLogger.info(`Batch transaction sent: ${tx.hash}`);
-  
+
       const receipt = await tx.wait();
-  
+
       customLogger.info(
         `Batch transaction confirmed in block ${receipt.blockNumber}`
       );
-  
+
       return {
         success: true,
         transactionHash: tx.hash,

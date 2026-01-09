@@ -11,7 +11,10 @@ class TokenRefresher {
         this.refreshInterval = null;
         this.isRefreshing = false;
         this.refreshPromise = null;
-        
+        this.maxRetries = config.maxRetries || 3;
+        this.retryDelayMs = config.retryDelayMs || 2000; // Increased default delay
+        this.timeoutMs = config.timeoutMs || 30000; // 30s timeout
+
         // Start token refresh immediately
         this.startTokenRefresh();
     }
@@ -23,8 +26,8 @@ class TokenRefresher {
         }
 
         this.isRefreshing = true;
-        this.refreshPromise = this._doRefreshToken();
-        
+        this.refreshPromise = this._doRefreshTokenWithRetry();
+
         try {
             const token = await this.refreshPromise;
             return token;
@@ -34,37 +37,65 @@ class TokenRefresher {
         }
     }
 
-    async _doRefreshToken() {
-        try {
-            logger.info('Refreshing token...');
-            
-            const response = await fetch(this.tokenUrl, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/x-www-form-urlencoded'
-                },
-                body: new URLSearchParams(this.credentials)
-            });
+    async _doRefreshTokenWithRetry() {
+        let lastError = null;
 
-            if (!response.ok) {
-                throw new Error(`Token refresh failed: ${response.status}`);
+        for (let attempt = 1; attempt <= this.maxRetries; attempt++) {
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), this.timeoutMs);
+
+            try {
+                logger.info(`Refreshing token... (attempt ${attempt}/${this.maxRetries})`);
+
+                const response = await fetch(this.tokenUrl, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded'
+                    },
+                    body: new URLSearchParams(this.credentials),
+                    signal: controller.signal
+                });
+
+                if (!response.ok) {
+                    throw new Error(`Token refresh failed: ${response.status}`);
+                }
+
+                const tokenData = await response.json();
+
+                if (!tokenData.access_token) {
+                    throw new Error('No access_token in response');
+                }
+
+                this.currentToken = tokenData.access_token;
+                this.tokenExpiry = Date.now() + (tokenData.expires_in * 1000);
+
+                logger.info(`Token refreshed successfully. Expires in ${tokenData.expires_in} seconds`);
+
+                return this.currentToken;
+            } catch (error) {
+                lastError = error;
+                const isTimeout = error.name === 'AbortError' || error.code === 'ETIMEDOUT';
+                const errorMsg = isTimeout ? 'Timeout' : error.message;
+
+                logger.error(`Error refreshing token (attempt ${attempt}/${this.maxRetries}): ${errorMsg}`);
+                console.log(`Error refreshing token (attempt ${attempt}): ${errorMsg}`, error);
+
+                if (attempt < this.maxRetries) {
+                    const delay = this.retryDelayMs * Math.pow(2, attempt - 1);
+                    logger.info(`Retrying in ${delay}ms...`);
+                    await this._sleep(delay);
+                }
+            } finally {
+                clearTimeout(timeoutId);
             }
-
-            const tokenData = await response.json();
-            
-            this.currentToken = tokenData.access_token;
-            this.tokenExpiry = Date.now() + (tokenData.expires_in * 1000);
-            
-            logger.info(`Token refreshed successfully. Expires in ${tokenData.expires_in} seconds`);
-            // logger.info(`New token: ${this.currentToken.substring(0, 50)}...`);
-            
-            return this.currentToken;
-        } catch (error) {
-            logger.error('Error refreshing token:', error);
-           console.log(`Error refreshing token: ${error.message}`,error);
-           
-            return null;
         }
+
+        logger.error(`Token refresh failed after ${this.maxRetries} attempts. Last error:`, lastError);
+        return null;
+    }
+
+    _sleep(ms) {
+        return new Promise(resolve => setTimeout(resolve, ms));
     }
 
     // Get current valid token - wait for token if not available
@@ -76,7 +107,13 @@ class TokenRefresher {
 
         // If token is expired or not available, refresh it
         logger.info('Token expired or not available, refreshing...');
-        return await this.refreshToken();
+        const token = await this.refreshToken();
+
+        if (!token) {
+            logger.error('CRITICAL: Unable to obtain token after all retry attempts');
+        }
+
+        return token;
     }
 
     // Synchronous method to get token if available (for backward compatibility)
@@ -92,15 +129,15 @@ class TokenRefresher {
     async startTokenRefresh() {
         // Get initial token
         await this.refreshToken();
-        
+
         // Refresh token every 50 minutes (10 minutes before the 1-hour expiry)
         this.refreshInterval = setInterval(async () => {
             await this.refreshToken();
         }, 50 * 60 * 1000); // 50 minutes in milliseconds
-        
+
         logger.info('Token refresh started - will refresh every 50 minutes');
     }
-   
+
     // Stop token refresh
     stop() {
         if (this.refreshInterval) {

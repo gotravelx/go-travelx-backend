@@ -7,7 +7,7 @@ import { fetchFlightData } from "./UnitedApiController.js";
 import { updateFlightEvent } from "../model/FlightEventModel.js";
 
 // Initialize DynamoDB operations
-const FLIGHT_EVENTS_TABLE=process.env.FLIGHT_EVENTS_TABLE || "FlightEvents";
+const FLIGHT_EVENTS_TABLE = process.env.FLIGHT_EVENTS_TABLE || "FlightEvents";
 const flightEventDb = new DynamoDbOp(FLIGHT_EVENTS_TABLE, "flightNumber");
 
 // Define valid flight status transitions
@@ -16,7 +16,7 @@ const validTransitions = {
   OUT: ["OFF", "ON", "IN ", "RTBL"], // Departed Gate -> In Flight, Returned to
   OFF: ["ON", "IN", "DVRT"], // In Flight -> Landed, Diverted
   ON: ["IN", "RTFL"], // Landed -> Arrived at Gate, Returned to Airport
-  IN: ["ON","NDPT"], // Arrived at Gate is final state
+  IN: ["ON", "NDPT"], // Arrived at Gate is final state
   CNCL: ["OUT", "OFF", "ON", "IN"], // Cancelled is final state
   RTBL: ["OUT", "CNCL"], // Returned to Gate -> Departed Gate, Cancelled
   RTFL: ["OUT"], // Returned to Airport -> Departed Gate
@@ -106,6 +106,7 @@ const processFlightStatusUpdate = async (flight) => {
         departureDate: todayDateString,
         departure: flight?.departureAirport,
         arrival: flight?.arrivalAirport,
+        carrier: flight?.carrierCode
       }
     );
 
@@ -129,7 +130,7 @@ const processFlightStatusUpdate = async (flight) => {
     );
     // Get blockchain data (this extracts and structures the flight data)
 
-  
+
     const flightNumber = flight.flightNumber;
     // Extract current flight status from blockchain data
 
@@ -164,7 +165,7 @@ const processFlightStatusUpdate = async (flight) => {
     );
     // Insert data into blockchain
     const blockchainResult = await blockchainService.storeFlightInBlockchain(flightDataResponse);
-    
+
 
     if (!blockchainResult.success) {
       customLogger.error(

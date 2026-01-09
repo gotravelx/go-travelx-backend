@@ -212,8 +212,17 @@ export const addFlightSubscription = async (req, res) => {
     );
 
     // Step 4: Extract key flight information
-    const flightDetails = extractKeyFlightInfo({ flightData });
-    const flightStatus = flightDetails.status.legStatus || "unknown";
+    const flightDetails = extractKeyFlightInfo(flightData);
+    if (!flightDetails) {
+      customLogger.error(`[SUBSCRIPTION] Failed to extract flight details for ${flightNumber}`);
+      return res.status(500).json({
+        success: false,
+        error: "Internal server error",
+        details: "Failed to extract flight details from API response"
+      });
+    }
+
+    const flightStatus = flightDetails.status?.legStatus || "unknown";
 
     // Step 5: Handle flight event and ensure flight exists in blockchain FIRST
     let flightEventResult = null;
@@ -491,9 +500,9 @@ export const getSubscribedFlights = async (req, res) => {
           // If no flightData available, skip
           if (!flightEvent || !flightEvent.flightData) return null;
 
-          const flightInfo = extractKeyFlightInfo({
-            flightData: flightEvent.flightData,
-          });
+          const flightInfo = extractKeyFlightInfo(flightEvent.flightData);
+
+          if (!flightInfo) return null;
 
           return {
             flightNumber: subscription.flightNumber,
