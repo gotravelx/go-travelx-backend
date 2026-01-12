@@ -98,15 +98,25 @@ export const getHistoricalData = async (req, res) => {
       });
     }
 
-    // FIXED: Pass parameters in correct order matching the service method
-    const flightDetails = await blockchainService.getFlightHistory(
-      flightNumber,
-      fromDate,           // string
-      toDate,            // string
-      carrierCode,       // string
-      arrivalAirport,    // string
-      departureAirport   // string
-    );
+
+    // Add a timeout to the blockchain service call
+    const TIMEOUT_MS = 25000; // 25 seconds
+    const flightDetails = await Promise.race([
+      blockchainService.getFlightHistory(
+        flightNumber,
+        fromDate,
+        toDate,
+        carrierCode,
+        arrivalAirport,
+        departureAirport
+      ),
+      new Promise((_, reject) =>
+        setTimeout(
+          () => reject(new Error("Request timed out after 25 seconds")),
+          TIMEOUT_MS
+        )
+      ),
+    ]);
 
     res.json({
       flightNumber,
@@ -116,8 +126,9 @@ export const getHistoricalData = async (req, res) => {
       flightDetails: flightDetails,
     });
   } catch (error) {
-    customLogger.error("Error fetching flight details:", error);
-    res.status(500).json({
+    logger.error("Error fetching flight details:", error);
+    const statusCode = error.message.includes("timed out") ? 408 : 500;
+    res.status(statusCode).json({
       error: "Failed to fetch flight details",
       message: error.message,
     });

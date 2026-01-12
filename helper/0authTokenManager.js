@@ -1,6 +1,10 @@
-
+import fetch from "node-fetch";
+import https from "https";
 import logger from "../utils/Logger.js";
 
+const agent = new https.Agent({
+    rejectUnauthorized: false,
+});
 
 class TokenRefresher {
     constructor(config) {
@@ -11,9 +15,9 @@ class TokenRefresher {
         this.refreshInterval = null;
         this.isRefreshing = false;
         this.refreshPromise = null;
-        this.maxRetries = config.maxRetries || 3;
-        this.retryDelayMs = config.retryDelayMs || 2000; // Increased default delay
-        this.timeoutMs = config.timeoutMs || 30000; // 30s timeout
+        this.maxRetries = config.maxRetries || 5;
+        this.retryDelayMs = config.retryDelayMs || 3000;
+        this.timeoutMs = config.timeoutMs || 60000;
 
         // Start token refresh immediately
         this.startTokenRefresh();
@@ -53,11 +57,13 @@ class TokenRefresher {
                         'Content-Type': 'application/x-www-form-urlencoded'
                     },
                     body: new URLSearchParams(this.credentials),
-                    signal: controller.signal
+                    signal: controller.signal,
+                    agent: agent
                 });
 
                 if (!response.ok) {
-                    throw new Error(`Token refresh failed: ${response.status}`);
+                    const errorText = await response.text();
+                    throw new Error(`Token refresh failed: ${response.status} - ${errorText}`);
                 }
 
                 const tokenData = await response.json();
@@ -74,11 +80,10 @@ class TokenRefresher {
                 return this.currentToken;
             } catch (error) {
                 lastError = error;
-                const isTimeout = error.name === 'AbortError' || error.code === 'ETIMEDOUT';
+                const isTimeout = error.name === 'AbortError' || error.code === 'ETIMEDOUT' || error.message.includes('timeout');
                 const errorMsg = isTimeout ? 'Timeout' : error.message;
 
                 logger.error(`Error refreshing token (attempt ${attempt}/${this.maxRetries}): ${errorMsg}`);
-                console.log(`Error refreshing token (attempt ${attempt}): ${errorMsg}`, error);
 
                 if (attempt < this.maxRetries) {
                     const delay = this.retryDelayMs * Math.pow(2, attempt - 1);
@@ -128,11 +133,19 @@ class TokenRefresher {
 
     async startTokenRefresh() {
         // Get initial token
-        await this.refreshToken();
+        try {
+            await this.refreshToken();
+        } catch (error) {
+            logger.error('Initial token fetch failed:', error);
+        }
 
         // Refresh token every 50 minutes (10 minutes before the 1-hour expiry)
         this.refreshInterval = setInterval(async () => {
-            await this.refreshToken();
+            try {
+                await this.refreshToken();
+            } catch (error) {
+                logger.error('Interval token refresh failed:', error);
+            }
         }, 50 * 60 * 1000); // 50 minutes in milliseconds
 
         logger.info('Token refresh started - will refresh every 50 minutes');
