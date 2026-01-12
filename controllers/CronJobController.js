@@ -25,7 +25,7 @@ const validTransitions = {
 
 
 export const startFlightStatusMonitoring = () => {
-  const job = scheduleJob?.scheduleJob("*/1 * * * *", async () => {
+  const job = scheduleJob?.scheduleJob("*/5 * * * *", async () => {
     try {
       customLogger.info("Starting flight status monitoring job...");
 
@@ -36,7 +36,6 @@ export const startFlightStatusMonitoring = () => {
 
       for (const flight of allFlightsInDB) {
         const preparedFlight = await processFlightStatusUpdate(flight);
-        console.log("preparedFlight", preparedFlight)
         if (preparedFlight) {
           flightsToStore.push(preparedFlight);
         }
