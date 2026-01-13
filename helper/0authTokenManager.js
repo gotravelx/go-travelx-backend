@@ -1,4 +1,4 @@
-import fetch from "node-fetch";
+import axios from "axios";
 import https from "https";
 import logger from "../utils/Logger.js";
 
@@ -45,28 +45,18 @@ class TokenRefresher {
         let lastError = null;
 
         for (let attempt = 1; attempt <= this.maxRetries; attempt++) {
-            const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), this.timeoutMs);
-
             try {
                 logger.info(`Refreshing token... (attempt ${attempt}/${this.maxRetries})`);
 
-                const response = await fetch(this.tokenUrl, {
-                    method: 'POST',
+                const response = await axios.post(this.tokenUrl, new URLSearchParams(this.credentials).toString(), {
                     headers: {
                         'Content-Type': 'application/x-www-form-urlencoded'
                     },
-                    body: new URLSearchParams(this.credentials),
-                    signal: controller.signal,
-                    agent: agent
+                    httpsAgent: agent,
+                    timeout: this.timeoutMs
                 });
 
-                if (!response.ok) {
-                    const errorText = await response.text();
-                    throw new Error(`Token refresh failed: ${response.status} - ${errorText}`);
-                }
-
-                const tokenData = await response.json();
+                const tokenData = response.data;
 
                 if (!tokenData.access_token) {
                     throw new Error('No access_token in response');
@@ -80,7 +70,7 @@ class TokenRefresher {
                 return this.currentToken;
             } catch (error) {
                 lastError = error;
-                const isTimeout = error.name === 'AbortError' || error.code === 'ETIMEDOUT' || error.message.includes('timeout');
+                const isTimeout = error.code === 'ECONNABORTED' || error.code === 'ETIMEDOUT' || error.message.includes('timeout');
                 const errorMsg = isTimeout ? 'Timeout' : error.message;
 
                 logger.error(`Error refreshing token (attempt ${attempt}/${this.maxRetries}): ${errorMsg}`);
@@ -90,8 +80,6 @@ class TokenRefresher {
                     logger.info(`Retrying in ${delay}ms...`);
                     await this._sleep(delay);
                 }
-            } finally {
-                clearTimeout(timeoutId);
             }
         }
 
