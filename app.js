@@ -235,9 +235,7 @@ const startServer = async () => {
     logger.info("✅ DynamoDB connected successfully");
 
     if (!isLocalEnv) {
-      logger.info("Initializing Token Refresher...");
-      new TokenRefresher(tokenConfig);
-      logger.info("Token Refresher initialized");
+      logger.info("Token Refresher is active (singleton)");
     } else {
       logger.info("Skipping Token Refresher in local environment");
     }

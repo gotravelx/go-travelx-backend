@@ -1,6 +1,9 @@
-
+import fs from "fs";
+import path from "path";
 import logger from "../utils/Logger.js";
+import tokenConfig from "../config/0authTokenConfig.js";
 
+const TOKEN_CACHE_FILE = path.join(process.cwd(), ".token_cache.json");
 
 class TokenRefresher {
     constructor(config) {
@@ -8,12 +11,39 @@ class TokenRefresher {
         this.credentials = config.credentials;
         this.currentToken = null;
         this.tokenExpiry = null;
-        this.refreshInterval = null;
         this.isRefreshing = false;
         this.refreshPromise = null;
-        
-        // Start token refresh immediately
-        this.startTokenRefresh();
+
+        // Load token from cache if available
+        this._loadTokenFromCache();
+
+        // Initial refresh if needed
+        this.getToken().catch(err => logger.error("Initial token fetch failed:", err));
+    }
+
+    _loadTokenFromCache() {
+        try {
+            if (fs.existsSync(TOKEN_CACHE_FILE)) {
+                const cache = JSON.parse(fs.readFileSync(TOKEN_CACHE_FILE, "utf8"));
+                if (cache.token && cache.expiry > Date.now()) {
+                    this.currentToken = cache.token;
+                    this.tokenExpiry = cache.expiry;
+                    logger.info(`Loaded token from cache. Expires in ${Math.round((cache.expiry - Date.now()) / 1000)} seconds`);
+                }
+            }
+        } catch (error) {
+            logger.error("Error loading token from cache:", error);
+        }
+    }
+
+    _saveTokenToCache(token, expiry) {
+        try {
+            const cache = { token, expiry };
+            fs.writeFileSync(TOKEN_CACHE_FILE, JSON.stringify(cache), "utf8");
+            logger.info("Token saved to cache file");
+        } catch (error) {
+            logger.error("Error saving token to cache:", error);
+        }
     }
 
     async refreshToken() {
@@ -24,7 +54,7 @@ class TokenRefresher {
 
         this.isRefreshing = true;
         this.refreshPromise = this._doRefreshToken();
-        
+
         try {
             const token = await this.refreshPromise;
             return token;
@@ -36,8 +66,8 @@ class TokenRefresher {
 
     async _doRefreshToken() {
         try {
-            logger.info('Refreshing token...');
-            
+            logger.info('Refreshing token from external API...');
+
             const response = await fetch(this.tokenUrl, {
                 method: 'POST',
                 headers: {
@@ -51,26 +81,25 @@ class TokenRefresher {
             }
 
             const tokenData = await response.json();
-            
+
             this.currentToken = tokenData.access_token;
             this.tokenExpiry = Date.now() + (tokenData.expires_in * 1000);
-            
+
+            this._saveTokenToCache(this.currentToken, this.tokenExpiry);
+
             logger.info(`Token refreshed successfully. Expires in ${tokenData.expires_in} seconds`);
-            // logger.info(`New token: ${this.currentToken.substring(0, 50)}...`);
-            
+
             return this.currentToken;
         } catch (error) {
             logger.error('Error refreshing token:', error);
-           console.log(`Error refreshing token: ${error.message}`,error);
-           
             return null;
         }
     }
 
     // Get current valid token - wait for token if not available
     async getToken() {
-        // If we have a valid token, return it
-        if (this.currentToken && Date.now() < this.tokenExpiry) {
+        // If we have a valid token (with 30s buffer), return it
+        if (this.currentToken && Date.now() < (this.tokenExpiry - 30000)) {
             return this.currentToken;
         }
 
@@ -78,37 +107,8 @@ class TokenRefresher {
         logger.info('Token expired or not available, refreshing...');
         return await this.refreshToken();
     }
-
-    // Synchronous method to get token if available (for backward compatibility)
-    getTokenSync() {
-        if (this.currentToken && Date.now() < this.tokenExpiry) {
-            return this.currentToken;
-        } else {
-            logger.info('Token is expired or not available');
-            return null;
-        }
-    }
-
-    async startTokenRefresh() {
-        // Get initial token
-        await this.refreshToken();
-        
-        // Refresh token every 50 minutes (10 minutes before the 1-hour expiry)
-        this.refreshInterval = setInterval(async () => {
-            await this.refreshToken();
-        }, 50 * 60 * 1000); // 50 minutes in milliseconds
-        
-        logger.info('Token refresh started - will refresh every 50 minutes');
-    }
-   
-    // Stop token refresh
-    stop() {
-        if (this.refreshInterval) {
-            clearInterval(this.refreshInterval);
-            this.refreshInterval = null;
-            logger.info('Token refresh stopped');
-        }
-    }
 }
 
-export default TokenRefresher;
+// Export a singleton instance
+const tokenRefresher = new TokenRefresher(tokenConfig);
+export default tokenRefresher;
