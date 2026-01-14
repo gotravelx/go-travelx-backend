@@ -704,9 +704,30 @@ export class FlightBlockchainService {
         }
       }
 
+      customLogger.info(`Preparing to store batch of ${flightInputs.length} flights`);
+
+      // Estimate gas
+      let estimatedGas;
+      try {
+        estimatedGas = await this.contractWithSigner.estimateGas.storeMultipleFlightDetails(
+          flightInputs
+        );
+        customLogger.info(`Estimated gas for batch: ${estimatedGas.toString()}`);
+      } catch (estimateError) {
+        customLogger.error("Gas estimation failed for batch:", estimateError);
+        // We'll continue without explicit gas limit if estimation fails, 
+        // but it's likely the transaction will fail too.
+      }
+
+      const gasLimit = estimatedGas ? estimatedGas.mul(120).div(100) : undefined;
+      if (gasLimit) {
+        customLogger.info(`Using gas limit with 20% buffer: ${gasLimit.toString()}`);
+      }
+
       // Send batch transaction
       const tx = await this.contractWithSigner.storeMultipleFlightDetails(
-        flightInputs
+        flightInputs,
+        gasLimit ? { gasLimit } : {}
       );
 
       customLogger.info(`Batch transaction sent: ${tx.hash}`);
@@ -714,7 +735,7 @@ export class FlightBlockchainService {
       const receipt = await tx.wait();
 
       customLogger.info(
-        `Batch transaction confirmed in block ${receipt.blockNumber}`
+        `Batch transaction confirmed in block ${receipt.blockNumber}. Gas used: ${receipt.gasUsed?.toString()}`
       );
 
       return {
@@ -726,6 +747,28 @@ export class FlightBlockchainService {
       };
     } catch (error) {
       customLogger.error("Error storing multiple flight details:", error);
+
+      // Enhanced error reporting for gas issues
+      if (
+        error.message?.includes("gas limit") ||
+        error.code === "UNPREDICTABLE_GAS_LIMIT" ||
+        error.message?.includes("out of gas")
+      ) {
+        customLogger.error("Potential gas limit issue detected in batch storage");
+        customLogger.error(
+          `Exact Blockchain Error: ${JSON.stringify(
+            {
+              message: error.message,
+              data: error.data,
+              transaction: error.transaction,
+              receipt: error.receipt,
+            },
+            null,
+            2
+          )}`
+        );
+      }
+
       throw error;
     }
   }
