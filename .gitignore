@@ -43,3 +43,6 @@ yarn-error.log*
 .env.local
 .env.development
 .env.test
+
+# Token cache
+.token_cache.json
