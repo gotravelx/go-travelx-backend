@@ -9,6 +9,7 @@ import authRouter from "./routes/authRoutes.js";
 import NewsLetterRoutes from "./routes/newsletterRoutes.js";
 import carrierRoutes from "./routes/carrierRoutes.js";
 
+import ProxyRoutes from "./routes/ProxyRoutes.js";
 import logger from "./utils/Logger.js";
 import { connectDynamoDB } from "./config/Dynamodb.js";
 import TokenRefresher from "./helper/0authTokenManager.js";
@@ -154,6 +155,7 @@ app.use(`/${version}/subscription`, SubscriptionRouter);
 app.use(`/${version}/newsletter`, NewsLetterRoutes);
 logger.info(`Registering carrier routes at /${version}/carriers`);
 app.use(`/${version}/carriers`, carrierRoutes);
+app.use(`/api`, ProxyRoutes);
 
 /* ==================== SWAGGER DOCS ==================== */
 import swaggerUi from "swagger-ui-express";
