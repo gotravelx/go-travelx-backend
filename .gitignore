@@ -45,4 +45,5 @@ yarn-error.log*
 .env.development
 .env.test
 
-
+# Token cache
+.token_cache.json

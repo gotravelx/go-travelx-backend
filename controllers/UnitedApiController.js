@@ -2,8 +2,7 @@ import fetch from "node-fetch";
 import https from "https";
 import dotenv from "dotenv";
 import logger from "../utils/Logger.js";
-import TokenRefresher from "../helper/0authTokenManager.js";
-import tokenConfig from "../config/0authTokenConfig.js";
+import tokenRefresher from "../helper/0authTokenManager.js";
 import {
   checkFlightSubscription,
   extractKeyFlightInfo,
@@ -16,7 +15,7 @@ const agent = new https.Agent({
 
 dotenv.config();
 
-const tokenRefresher = new TokenRefresher(tokenConfig);
+
 
 
 export const fetchFlightData = async (flightNumber, options = {}) => {

@@ -7,6 +7,8 @@ import cors from "cors";
 import FlightRouter from "./routes/FlightEventRoutes.js";
 import authRouter from "./routes/authRoutes.js";
 import NewsLetterRoutes from "./routes/newsletterRoutes.js";
+import carrierRoutes from "./routes/carrierRoutes.js";
+
 import ProxyRoutes from "./routes/ProxyRoutes.js";
 import logger from "./utils/Logger.js";
 import { connectDynamoDB } from "./config/Dynamodb.js";
@@ -151,6 +153,8 @@ app.use(`/${version}/auth`, authRouter);
 app.use(`/${version}/flights`, FlightRouter);
 app.use(`/${version}/subscription`, SubscriptionRouter);
 app.use(`/${version}/newsletter`, NewsLetterRoutes);
+logger.info(`Registering carrier routes at /${version}/carriers`);
+app.use(`/${version}/carriers`, carrierRoutes);
 app.use(`/api`, ProxyRoutes);
 
 /* ==================== SWAGGER DOCS ==================== */
@@ -233,9 +237,7 @@ const startServer = async () => {
     logger.info("✅ DynamoDB connected successfully");
 
     if (!isLocalEnv) {
-      logger.info("Initializing Token Refresher...");
-      new TokenRefresher(tokenConfig);
-      logger.info("Token Refresher initialized");
+      logger.info("Token Refresher is active (singleton)");
     } else {
       logger.info("Skipping Token Refresher in local environment");
     }

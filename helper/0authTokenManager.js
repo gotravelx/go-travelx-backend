@@ -1,6 +1,11 @@
+import fs from "fs";
+import path from "path";
 import axios from "axios";
 import https from "https";
 import logger from "../utils/Logger.js";
+import tokenConfig from "../config/0authTokenConfig.js";
+
+const TOKEN_CACHE_FILE = path.join(process.cwd(), ".token_cache.json");
 
 const agent = new https.Agent({
     rejectUnauthorized: false,
@@ -12,15 +17,42 @@ class TokenRefresher {
         this.credentials = config.credentials;
         this.currentToken = null;
         this.tokenExpiry = null;
-        this.refreshInterval = null;
         this.isRefreshing = false;
         this.refreshPromise = null;
         this.maxRetries = config.maxRetries || 5;
         this.retryDelayMs = config.retryDelayMs || 3000;
         this.timeoutMs = config.timeoutMs || 60000;
 
+        // Load token from cache if available
+        this._loadTokenFromCache();
+
         // Start token refresh immediately
         this.startTokenRefresh();
+    }
+
+    _loadTokenFromCache() {
+        try {
+            if (fs.existsSync(TOKEN_CACHE_FILE)) {
+                const cache = JSON.parse(fs.readFileSync(TOKEN_CACHE_FILE, "utf8"));
+                if (cache.token && cache.expiry > Date.now()) {
+                    this.currentToken = cache.token;
+                    this.tokenExpiry = cache.expiry;
+                    logger.info(`Loaded token from cache. Expires in ${Math.round((cache.expiry - Date.now()) / 1000)} seconds`);
+                }
+            }
+        } catch (error) {
+            logger.error("Error loading token from cache:", error);
+        }
+    }
+
+    _saveTokenToCache(token, expiry) {
+        try {
+            const cache = { token, expiry };
+            fs.writeFileSync(TOKEN_CACHE_FILE, JSON.stringify(cache), "utf8");
+            logger.info("Token saved to cache file");
+        } catch (error) {
+            logger.error("Error saving token to cache:", error);
+        }
     }
 
     async refreshToken() {
@@ -65,6 +97,9 @@ class TokenRefresher {
                 this.currentToken = tokenData.access_token;
                 this.tokenExpiry = Date.now() + (tokenData.expires_in * 1000);
 
+                // Save to cache
+                this._saveTokenToCache(this.currentToken, this.tokenExpiry);
+
                 logger.info(`Token refreshed successfully. Expires in ${tokenData.expires_in} seconds`);
 
                 return this.currentToken;
@@ -93,8 +128,8 @@ class TokenRefresher {
 
     // Get current valid token - wait for token if not available
     async getToken() {
-        // If we have a valid token, return it
-        if (this.currentToken && Date.now() < this.tokenExpiry) {
+        // If we have a valid token (with 30s buffer), return it
+        if (this.currentToken && Date.now() < (this.tokenExpiry - 30000)) {
             return this.currentToken;
         }
 
@@ -149,4 +184,6 @@ class TokenRefresher {
     }
 }
 
-export default TokenRefresher;
+// Export a singleton instance
+const tokenRefresher = new TokenRefresher(tokenConfig);
+export default tokenRefresher;
