@@ -358,18 +358,6 @@ export class FlightBlockchainService {
       throw new Error("Wallet not configured for transactions");
     }
 
-    this.isFlightExist(flightNumber, carrierCode).then((exists) => {
-      if (exists) {
-        customLogger.info(
-          `[Blockchain] Flight exists: This flight ${carrierCode}${flightNumber} is present in Blockchain`
-        );
-      } else {
-        customLogger.info(
-          `[Blockchain] Flight exists: This flight ${carrierCode}${flightNumber} is not present in Blockchain`
-        );
-      }
-    });
-
     try {
       const tx = await this.contractWithSigner.addFlightSubscription(
         flightNumber,
@@ -400,7 +388,7 @@ export class FlightBlockchainService {
     if (!this.contractWithSigner) {
       throw new Error("Wallet not configured for transactions");
     }
-    
+
     try {
       // Validate input arrays
       if (
@@ -423,7 +411,7 @@ export class FlightBlockchainService {
         customLogger.info(`Flight Numbers: ${flight}`);
       });
 
-      
+
       departureAirports.map((flight) => {
         customLogger.info(`DepartureAirports: ${flight}`);
       });
@@ -681,16 +669,16 @@ export class FlightBlockchainService {
     if (!this.contractWithSigner) {
       throw new Error("Wallet not configured for transactions");
     }
-  
+
     try {
       if (!Array.isArray(flightInputs) || flightInputs.length === 0) {
         throw new Error("No flight data provided for batch insert");
       }
-  
+
       if (flightInputs.length > 100) {
         throw new Error("Too many flights in batch (max 100 allowed)");
       }
-  
+
       // Validate each flight input
       for (const input of flightInputs) {
         if (
@@ -702,7 +690,7 @@ export class FlightBlockchainService {
             `Invalid flightDetails array, expected 10 elements, got ${input.flightDetails?.length}`
           );
         }
-  
+
         // Ensure required fields are not empty
         const requiredFields = [0, 1, 2, 3, 4]; // carrierCode, flightNumber, originateDate, arrivalAirport, departureAirport
         for (const idx of requiredFields) {
@@ -710,25 +698,46 @@ export class FlightBlockchainService {
             throw new Error(`Required flight field at index ${idx} is empty`);
           }
         }
-  
+
         if (typeof input.compressedFlightInformation !== "string") {
           throw new Error("Invalid compressedFlightInformation");
         }
       }
-  
+
+      customLogger.info(`Preparing to store batch of ${flightInputs.length} flights`);
+
+      // Estimate gas
+      let estimatedGas;
+      try {
+        estimatedGas = await this.contractWithSigner.estimateGas.storeMultipleFlightDetails(
+          flightInputs
+        );
+        customLogger.info(`Estimated gas for batch: ${estimatedGas.toString()}`);
+      } catch (estimateError) {
+        customLogger.error("Gas estimation failed for batch:", estimateError);
+        // We'll continue without explicit gas limit if estimation fails, 
+        // but it's likely the transaction will fail too.
+      }
+
+      const gasLimit = estimatedGas ? estimatedGas.mul(120).div(100) : undefined;
+      if (gasLimit) {
+        customLogger.info(`Using gas limit with 20% buffer: ${gasLimit.toString()}`);
+      }
+
       // Send batch transaction
       const tx = await this.contractWithSigner.storeMultipleFlightDetails(
-        flightInputs
+        flightInputs,
+        gasLimit ? { gasLimit } : {}
       );
-  
+
       customLogger.info(`Batch transaction sent: ${tx.hash}`);
-  
+
       const receipt = await tx.wait();
-  
+
       customLogger.info(
-        `Batch transaction confirmed in block ${receipt.blockNumber}`
+        `Batch transaction confirmed in block ${receipt.blockNumber}. Gas used: ${receipt.gasUsed?.toString()}`
       );
-  
+
       return {
         success: true,
         transactionHash: tx.hash,
@@ -738,6 +747,28 @@ export class FlightBlockchainService {
       };
     } catch (error) {
       customLogger.error("Error storing multiple flight details:", error);
+
+      // Enhanced error reporting for gas issues
+      if (
+        error.message?.includes("gas limit") ||
+        error.code === "UNPREDICTABLE_GAS_LIMIT" ||
+        error.message?.includes("out of gas")
+      ) {
+        customLogger.error("Potential gas limit issue detected in batch storage");
+        customLogger.error(
+          `Exact Blockchain Error: ${JSON.stringify(
+            {
+              message: error.message,
+              data: error.data,
+              transaction: error.transaction,
+              receipt: error.receipt,
+            },
+            null,
+            2
+          )}`
+        );
+      }
+
       throw error;
     }
   }

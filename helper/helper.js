@@ -4,7 +4,7 @@ import customLogger from "../utils/Logger.js";
 import { getCompressedFlightData } from "./compress-decompress.js";
 import dayjs from "dayjs";
 
-const FLIGHT_SUBSCRIPTION_TABLE=process.env.FLIGHT_SUBSCRIPTION_TABLE || "FlightSubscriptions"
+const FLIGHT_SUBSCRIPTION_TABLE = process.env.FLIGHT_SUBSCRIPTION_TABLE || "FlightSubscriptions"
 const flightSubscription = new DynamoDbOp(FLIGHT_SUBSCRIPTION_TABLE, [
   "walletAddress",
   "flightNumber",
@@ -136,9 +136,12 @@ export const getBlockchainData = async (flightStatusResp) => {
     }
 
     const carrierCode =
+      flight.CarrierCode ||
       operationalSegment.OperatingAirlineCode ||
       operationalSegment.OperatingAirline?.IATACode ||
       "";
+
+    console.log("carrierCode000", carrierCode)
 
     let compressedFlightData = "";
     try {
@@ -284,32 +287,37 @@ export const getBlockchainData = async (flightStatusResp) => {
   }
 };
 
-export const extractKeyFlightInfo = (flightData) => {
+export const extractKeyFlightInfo = (input) => {
   try {
-    const flight = flightData.flightData.Flight;
-    const operationalSegment =
-      flightData.flightData.FlightLegs?.[0]?.OperationalFlightSegments?.[0];
-    const scheduledSegment =
-      flightData.flightData.FlightLegs?.[0]?.ScheduledFlightSegments?.[0];
-    const getcarrieCode = flightData.flightData.FlightLegs?.[0]?.ScheduledFlightSegments[0]?.OperatingAirline?.IATACode
-
-
-
-    if (!flight) {
-      throw new Error("Invalid flight data structure");
+    if (!input) {
+      logger.error("[EXTRACT FLIGHT INFO] No input provided");
+      return null;
     }
 
-    // const carrierCode =
-    //   operationalSegment.OperatingAirlineCode ||
-    //   operationalSegment.OperatingAirline?.IATACode ||
-    //   "";
+    // Handle both { flightData: ... } and direct flightData
+    const data = input.flightData || input;
+
+    const flight = data.Flight;
+    const operationalSegment = data.FlightLegs?.[0]?.OperationalFlightSegments?.[0];
+    const scheduledSegment = data.FlightLegs?.[0]?.ScheduledFlightSegments?.[0];
+    const getcarrieCode = data.flightStatusResp?.Flight?.CarrierCode || flight?.CarrierCode;
+
+    if (!flight) {
+      logger.error("[EXTRACT FLIGHT INFO] Flight object missing in data");
+      return null;
+    }
 
     if (!operationalSegment) {
       logger.error(
         "[EXTRACT FLIGHT INFO] Operational segment not found for flight:",
         flight.FlightNumber
       );
-      throw new Error(`${flight.FlightNumber} - Operational segment not found`);
+      return {
+        flightNumber: flight.FlightNumber,
+        departureDate: flight.DepartureDate,
+        carrierCode: getcarrieCode,
+        error: "Operational segment not found"
+      };
     }
 
     logger.info(

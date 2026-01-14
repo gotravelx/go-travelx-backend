@@ -14,7 +14,7 @@ import blockchainService from "../utils/FlightBlockchainService.js";
 import customLogger from "../utils/Logger.js";
 import { fetchFlightData } from "./UnitedApiController.js";
 import { flightDb } from "../model/FlightEventModel.js";
-import logger from "../utils/Logger.js";;
+import logger from "../utils/Logger.js";
 const walletAddress = process.env.WALLET_ADDRESS;
 
 
@@ -167,16 +167,8 @@ export const addFlightSubscription = async (req, res) => {
 
       if (isAlreadySubscribedBlockchain) {
         customLogger.info(
-          `[SUBSCRIPTION] User already subscribed to flight ${flightNumber} (Blockchain)`
+          `[SUBSCRIPTION] User already subscribed to flight ${flightNumber} (Blockchain). Proceeding to ensure DB sync.`
         );
-
-        return res.status(200).json({
-          success: true,
-          flightNumber,
-          isSubscribed: true,
-          message: "Already subscribed to this flight (Blockchain)",
-          subscriptionSource: "blockchain",
-        });
       }
     } catch (blockchainError) {
       customLogger.warn(
@@ -212,8 +204,19 @@ export const addFlightSubscription = async (req, res) => {
     );
 
     // Step 4: Extract key flight information
-    const flightDetails = extractKeyFlightInfo({ flightData });
-    const flightStatus = flightDetails.status.legStatus || "unknown";
+    const flightDetails = extractKeyFlightInfo(flightData);
+    if (!flightDetails) {
+      customLogger.error(
+        `[SUBSCRIPTION] Failed to extract flight details for ${flightNumber}`
+      );
+      return res.status(500).json({
+        success: false,
+        error: "Internal server error",
+        details: "Failed to extract flight details from API response",
+      });
+    }
+
+    const flightStatus = flightDetails.status?.legStatus || "unknown";
 
     // Step 5: Handle flight event and ensure flight exists in blockchain FIRST
     let flightEventResult = null;
@@ -261,12 +264,23 @@ export const addFlightSubscription = async (req, res) => {
           );
         } else {
           customLogger.info(
-            `[SUBSCRIPTION] Flight already exists in blockchain for ${flightNumber}`
+            `[SUBSCRIPTION] Flight already exists in blockchain for ${flightNumber}. Syncing to DB.`
+          );
+          // Sync to database if missing but exists in blockchain
+          flightEventResult = await insertFlightEvent(
+            flightNumber,
+            flightDetails.carrierCode,
+            departureDate,
+            departureAirport,
+            arrivalAirport,
+            flightStatus,
+            "EXISTING_IN_BLOCKCHAIN",
+            flightData
           );
         }
 
         customLogger.info(
-          `[SUBSCRIPTION] Flight event inserted to database for ${flightNumber}`
+          `[SUBSCRIPTION] Flight event processed for ${flightNumber}`
         );
       } else {
         customLogger.info(
@@ -277,7 +291,7 @@ export const addFlightSubscription = async (req, res) => {
         // Double-check that flight exists in blockchain even if we have a database record
         const isFlightExistInBlockchain = await blockchainService.isFlightExist(
           flightNumber,
-          carrierCode
+          flightDetails.carrierCode
         );
 
         if (!isFlightExistInBlockchain) {
@@ -310,64 +324,66 @@ export const addFlightSubscription = async (req, res) => {
     customLogger.info(
       `[SUBSCRIPTION] Subscribing to blockchain for flight ${flightNumber}`
     );
-    let blockchainSubscription;
-    try {
-      blockchainSubscription = await blockchainService.addSubscription(
-        flightNumber,
-        carrierCode,
-        departureAirport,
-        arrivalAirport
-      );
-
-      customLogger.info(
-        `[SUBSCRIPTION] Successfully subscribed to blockchain. TxHash: ${blockchainSubscription.transactionHash}`
-      );
-    } catch (subscriptionError) {
-      const errorMessage =
-        subscriptionError?.error?.message || subscriptionError?.message || "";
-
-      customLogger.error(
-        `[SUBSCRIPTION] Blockchain subscription error: ${errorMessage}`
-      );
-
-      // Handle specific error cases
-      if (
-        errorMessage.includes("UNPREDICTABLE_GAS_LIMIT") &&
-        errorMessage.includes("you are already Subscribed")
-      ) {
-        customLogger.info(
-          `[SUBSCRIPTION] User already subscribed to flight ${flightNumber} (Blockchain Error)`
-        );
-        return res.status(200).json({
-          success: true,
+    let blockchainSubscription = null;
+    if (!isAlreadySubscribedBlockchain) {
+      try {
+        blockchainSubscription = await blockchainService.addSubscription(
           flightNumber,
-          isSubscribed: true,
-          message: "User already subscribed to this flight",
-          subscriptionSource: "blockchain_error",
-        });
-      }
-
-      // Handle the "Flight is not Exist here" error specifically
-      if (
-        errorMessage.includes("UNPREDICTABLE_GAS_LIMIT") &&
-        errorMessage.includes("Flight is not Exist here")
-      ) {
-        customLogger.error(
-          `[SUBSCRIPTION] Flight ${flightNumber} does not exist in blockchain despite our checks`
+          flightDetails.carrierCode,
+          departureAirport,
+          arrivalAirport
         );
+
+        customLogger.info(
+          `[SUBSCRIPTION] Successfully subscribed to blockchain. TxHash: ${blockchainSubscription.transactionHash}`
+        );
+      } catch (subscriptionError) {
+        const errorMessage =
+          subscriptionError?.error?.message || subscriptionError?.message || "";
+
+        customLogger.error(
+          `[SUBSCRIPTION] Blockchain subscription error: ${errorMessage}`
+        );
+
+        // Handle specific error cases
+        if (
+          errorMessage.includes("UNPREDICTABLE_GAS_LIMIT") &&
+          errorMessage.includes("you are already Subscribed")
+        ) {
+          customLogger.info(
+            `[SUBSCRIPTION] User already subscribed to flight ${flightNumber} (Blockchain Error)`
+          );
+          return res.status(200).json({
+            success: true,
+            flightNumber,
+            isSubscribed: true,
+            message: "User already subscribed to this flight",
+            subscriptionSource: "blockchain_error",
+          });
+        }
+
+        // Handle the "Flight is not Exist here" error specifically
+        if (
+          errorMessage.includes("UNPREDICTABLE_GAS_LIMIT") &&
+          errorMessage.includes("Flight is not Exist here")
+        ) {
+          customLogger.error(
+            `[SUBSCRIPTION] Flight ${flightNumber} does not exist in blockchain despite our checks`
+          );
+          return res.status(500).json({
+            success: false,
+            error: "Flight does not exist in blockchain",
+            details: "Flight data insertion may have failed. Please try again.",
+          });
+        }
+
+        // Return error for other blockchain failures
         return res.status(500).json({
           success: false,
-          error: "Flight does not exist in blockchain",
-          details: "Flight data insertion may have failed. Please try again.",
+          error: "Blockchain subscription failed",
+          details: errorMessage,
         });
       }
-
-      // Return error for other blockchain failures
-      return res.status(500).json({
-        success: false,
-        error: "Blockchain subscription failed",
-        details: errorMessage,
-      });
     }
 
     // Step 7: Save subscription to database
@@ -375,10 +391,11 @@ export const addFlightSubscription = async (req, res) => {
       await insertFlightSubscription({
         walletAddress,
         flightNumber,
-        carrierCode,
+        carrierCode: flightDetails.carrierCode,
         departureAirport,
         arrivalAirport,
-        blockchainTxHash: blockchainSubscription.transactionHash,
+        blockchainTxHash:
+          blockchainSubscription?.transactionHash || "ALREADY_SUBSCRIBED",
         isSubscriptionActive: true,
         subscriptionDate: new Date().toISOString(),
         createdAt: new Date().toISOString(),
@@ -396,7 +413,8 @@ export const addFlightSubscription = async (req, res) => {
       return res.status(200).json({
         success: true,
         flightNumber,
-        blockchainTxHash: blockchainSubscription.transactionHash,
+        blockchainTxHash:
+          blockchainSubscription?.transactionHash || "ALREADY_SUBSCRIBED",
         isSubscribed: true,
         message:
           "Successfully subscribed to flight (blockchain), but database save failed",
@@ -409,22 +427,25 @@ export const addFlightSubscription = async (req, res) => {
     return res.status(200).json({
       success: true,
       flightNumber,
-      blockchainTxHash: blockchainSubscription.transactionHash,
+      blockchainTxHash:
+        blockchainSubscription?.transactionHash || "ALREADY_SUBSCRIBED",
       flightEventHash: blockchainFlightHash,
       isSubscribed: true,
-      message: "Successfully subscribed to flight",
+      message: isAlreadySubscribedBlockchain
+        ? "Already subscribed to this flight (Blockchain)"
+        : "Successfully subscribed to flight",
       subscriptionSaved: true,
       flightDetails: {
         departureAirport,
         arrivalAirport,
         departureDate,
-        carrierCode,
+        carrierCode: flightDetails.carrierCode,
         status: flightStatus,
       },
     });
   } catch (error) {
     customLogger.error(
-      `[SUBSCRIPTION] Unexpected error in subscription process: ${error}`
+      `[SUBSCRIPTION] Unexpected error in subscription process: ${error.message}`
     );
 
     console.log(`[SUBSCRIPTION]`, error);
@@ -436,8 +457,6 @@ export const addFlightSubscription = async (req, res) => {
     });
   }
 };
-
-/* ====================== Add Flight Subscription Api =============================== */
 
 /* ====================== Add Flight Subscription Api =============================== */
 
@@ -491,9 +510,9 @@ export const getSubscribedFlights = async (req, res) => {
           // If no flightData available, skip
           if (!flightEvent || !flightEvent.flightData) return null;
 
-          const flightInfo = extractKeyFlightInfo({
-            flightData: flightEvent.flightData,
-          });
+          const flightInfo = extractKeyFlightInfo(flightEvent.flightData);
+
+          if (!flightInfo) return null;
 
           return {
             flightNumber: subscription.flightNumber,
@@ -572,7 +591,11 @@ export const unsubscribeFlight = async (req, res) => {
       });
     }
 
-    logger.info(`INFO: Received un-subscription request for wallet: ${walletAddress}, flights: ${flightNumbers.join(", ")}`);
+    logger.info(
+      `INFO: Received un-subscription request for wallet: ${walletAddress}, flights: ${flightNumbers.join(
+        ", "
+      )}`
+    );
 
     // Validate array lengths match
     if (flightNumbers.length !== departureAirports.length) {
