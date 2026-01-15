@@ -16,6 +16,8 @@ import TokenRefresher from "./helper/0authTokenManager.js";
 import tokenConfig from "./config/0authTokenConfig.js";
 import SubscriptionRouter from "./routes/SubscritionRoutes.js";
 import helmet from "helmet";
+import { startHealthCheckMonitoring } from "./controllers/HealthCheckController.js";
+
 
 // Load environment variables first
 dotenv.config();
@@ -241,6 +243,8 @@ const startServer = async () => {
     } else {
       logger.info("Skipping Token Refresher in local environment");
     }
+    // Start Health Check Monitoring
+    startHealthCheckMonitoring();
 
     app.listen(PORT, () => {
       logger.info(`🚀 Server running on port ${PORT}`);

@@ -79,13 +79,12 @@ export const fetchFlightData = async (flightNumber, options = {}) => {
     });
 
     clearTimeout(timeoutId);
-
     logger.info(`[API] response----------: ${response}`);
 
     if (!response.ok) {
-      console.log(`HTTP error! status: ${response}`);
-
-      throw new Error(`HTTP error! status: ${response.status}`);
+      const err = new Error(`HTTP error! status: ${response.status}`);
+      err.status = response.status; // REQUIRED for health check
+      throw err;
     }
 
     const data = await response.json();
@@ -145,7 +144,10 @@ export const fetchFlightData = async (flightNumber, options = {}) => {
     }
   } catch (error) {
     logger.error("[API] Error fetching flight data:", error);
-    console.log("[API] Error fetching flight data:", error);
+
+    if (options.throwOnError) {
+      throw error;
+    }
 
     return {
       success: false,

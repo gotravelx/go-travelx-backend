@@ -47,3 +47,9 @@ yarn-error.log*
 
 # Token cache
 .token_cache.json
+
+# Jest HTML Reporter
+jest-html-reporter/
+jest_html_reporters/
+*.html
+*.json
