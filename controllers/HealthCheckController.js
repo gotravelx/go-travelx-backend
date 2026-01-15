@@ -14,12 +14,19 @@ const HEALTH_ENV = process.env.HEALTH_ENV || "dev";
 const IS_PROD = HEALTH_ENV === "prod";
 const IS_LOCAL = HEALTH_ENV === "local";
 
-const POLLING_CRON = IS_PROD ? "*/1 * * * *" : "*/1 * * * *";
+const POLLING_CRON =
+    IS_PROD
+        ? "* * * * *"        // PROD: every 1 minute
+        : IS_LOCAL
+            ? "*/3 * * * *"  // LOCAL: every 3 minutes
+            : "*/10 * * * *"; // DEV / QA / TEST: every 10 minutes
+
 const ALERT_INTERVAL_MS = IS_PROD
-    ? 3 * 60 * 1000
+    ? 3 * 60 * 1000      // PROD: alert every 3 minutes
     : IS_LOCAL
-        ? 1 * 60 * 1000
-        : 30 * 60 * 1000;
+        ? 3 * 60 * 1000  // LOCAL: alert every 3 minutes
+        : 30 * 60 * 1000; // DEV / QA / TEST: alert every 30 minutes
+
 
 
 // State tracking
@@ -150,7 +157,7 @@ export const startHealthCheckMonitoring = () => {
             const now = Date.now();
 
             if (
-                consecutiveFailures >= 1 &&
+                consecutiveFailures >= 3 &&
                 now - lastAlertTime >= ALERT_INTERVAL_MS
             ) {
                 customLogger.error(`[HEALTH-CHECK] Alerting due to ${consecutiveFailures} consecutive failures`);
