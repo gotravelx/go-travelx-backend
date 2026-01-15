@@ -1,8 +1,8 @@
 import DynamoDbOp from "../services/DynamodbOperations.js";
 
-const FLIGHT_SUBSCRIPTION_TABLE=process.env.FLIGHT_SUBSCRIPTION_TABLE || "FlightSubscriptions"
+const FLIGHT_SUBSCRIPTION_TABLE = process.env.FLIGHT_SUBSCRIPTION_TABLE || "FlightSubscriptions"
 
-export const subscribeDb = new DynamoDbOp(FLIGHT_SUBSCRIPTION_TABLE, ["flightNumber","walletAddress"]);
+export const subscribeDb = new DynamoDbOp(FLIGHT_SUBSCRIPTION_TABLE, ["flightNumber", "walletAddress"]);
 
 const TABLE_NAME = FLIGHT_SUBSCRIPTION_TABLE;
 
@@ -19,6 +19,9 @@ export const FlightSubscriptionModel = {
     { AttributeName: "flightNumber", AttributeType: "S" },
   ],
   BillingMode: "PAY_PER_REQUEST",
+  PointInTimeRecoverySpecification: {
+    PointInTimeRecoveryEnabled: true
+  }
 };
 
 /* =================== Defines the table schema ===================*/
@@ -97,7 +100,7 @@ export const getFlightSubscriptions = async (walletAddress) => {
 export const updateFlightSubscription = async (walletAddress, flightNumber, updateData) => {
   try {
     const filter = { walletAddress, flightNumber };
-    
+
     // Use the updateOne method from DbOperations
     const result = await subscribeDb.updateOne(filter, updateData);
 
@@ -196,9 +199,9 @@ export const isFlightSubscribed = async (walletAddress, flightNumber) => {
     const filter = { walletAddress, flightNumber };
 
     const exists = await subscribeDb.findOne(filter);
-    if(!exists) return { success: true, isSubscribed:false };
+    if (!exists) return { success: true, isSubscribed: false };
 
-    return { success: true, isSubscribed:true, item: exists };
+    return { success: true, isSubscribed: true, item: exists };
   } catch (error) {
     console.error("[DYNAMODB] Error checking flight subscription existence", {
       walletAddress,

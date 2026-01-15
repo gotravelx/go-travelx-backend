@@ -15,6 +15,9 @@ export const createNewsletterTableIfNotExists = async () => {
       KeySchema: [{ AttributeName: "email", KeyType: "HASH" }],
       AttributeDefinitions: [{ AttributeName: "email", AttributeType: "S" }],
       BillingMode: "PAY_PER_REQUEST",
+      PointInTimeRecoverySpecification: {
+        PointInTimeRecoveryEnabled: true
+      }
     };
 
     await dynamoClient.createTable(tableParams).promise();

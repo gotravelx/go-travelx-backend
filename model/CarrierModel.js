@@ -17,6 +17,9 @@ export const CarrierModel = {
         { AttributeName: "carrierCode", AttributeType: "S" },
     ],
     BillingMode: "PAY_PER_REQUEST",
+    PointInTimeRecoverySpecification: {
+        PointInTimeRecoveryEnabled: true
+    }
 };
 
 /* =================== Defines the table schema ===================*/

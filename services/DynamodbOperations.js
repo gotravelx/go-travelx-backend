@@ -1,5 +1,6 @@
 import { getDocumentClient } from "../config/Dynamodb.js";
 import DbOperations from "./DbOperations.js";
+import cacheService from "./CacheService.js";
 
 class DynamoDbOp extends DbOperations {
   constructor(tableName, primaryKey = "id") {
@@ -33,13 +34,19 @@ class DynamoDbOp extends DbOperations {
     };
     try {
       await this.dynamodb.put(params).promise();
+
+      // Invalidate cache for this item
+      const key = this.extractKey(data);
+      const cacheKey = `${this.tableName}:${JSON.stringify(key)}`;
+      cacheService.del(cacheKey);
+
       return data;
     } catch (error) {
       throw new Error(`DynamoDB Create Error: ${error.message}`);
     }
   }
 
-  async findById(id) {
+  async findById(id, useCache = false, ttl = 600) {
     let key;
     if (Array.isArray(this.primaryKey)) {
       // For composite keys, id should be an object with key attributes
@@ -48,34 +55,66 @@ class DynamoDbOp extends DbOperations {
       key = { [this.primaryKey]: id };
     }
 
+    // Cache Key Generation
+    const cacheKey = `${this.tableName}:${JSON.stringify(key)}`;
+
+    // 1. Check Cache
+    if (useCache) {
+      const cachedItem = cacheService.get(cacheKey);
+      if (cachedItem) {
+        return cachedItem;
+      }
+    }
+
     const params = {
       TableName: this.tableName,
       Key: key,
     };
     try {
       const result = await this.dynamodb.get(params).promise();
-      return result.Item || null;
+      const item = result.Item || null;
+
+      // 2. Set Cache
+      if (useCache && item) {
+        cacheService.set(cacheKey, item, ttl);
+      }
+
+      return item;
     } catch (error) {
       throw new Error(`DynamoDB FindById Error: ${error.message}`);
     }
   }
 
-  async findOne(filter) {  
+  async findOne(filter, useCache = false, ttl = 600) {
     const params = {
       TableName: this.tableName,
       Key: filter,
     };
-    
+
+    // Cache Key
+    const cacheKey = `${this.tableName}:findOne:${JSON.stringify(filter)}`;
+
+    if (useCache) {
+      const cachedItem = cacheService.get(cacheKey);
+      if (cachedItem) return cachedItem;
+    }
+
     try {
       const result = await this.dynamodb.get(params).promise();
-      return result.Item || null;
+      const item = result.Item || null;
+
+      if (useCache && item) {
+        cacheService.set(cacheKey, item, ttl);
+      }
+
+      return item;
     } catch (error) {
       console.error('DynamoDB error details:', error);
       throw new Error(`DynamoDB FindOne Error: ${error.message}`);
     }
   }
 
-  async findMany(filter = {}, options = {}) {
+  async findMany(filter = {}, options = {}, useCache = false, ttl = 600) {
     const params = {
       TableName: this.tableName,
     };
@@ -97,9 +136,23 @@ class DynamoDbOp extends DbOperations {
       params.ExclusiveStartKey = options.exclusiveStartKey;
     }
 
+    // Cache Key
+    const cacheKey = `${this.tableName}:findMany:${JSON.stringify(filter)}:${JSON.stringify(options)}`;
+
+    if (useCache) {
+      const cachedItems = cacheService.get(cacheKey);
+      if (cachedItems) return cachedItems;
+    }
+
     try {
       const result = await this.dynamodb.scan(params).promise();
-      return result.Items || [];
+      const items = result.Items || [];
+
+      if (useCache) {
+        cacheService.set(cacheKey, items, ttl);
+      }
+
+      return items;
     } catch (error) {
       throw new Error(`DynamoDB FindMany Error: ${error.message}`);
     }
@@ -128,6 +181,11 @@ class DynamoDbOp extends DbOperations {
     };
     try {
       const result = await this.dynamodb.update(params).promise();
+
+      // Invalidate Cache
+      const cacheKey = `${this.tableName}:${JSON.stringify(key)}`;
+      cacheService.del(cacheKey);
+
       return result.Attributes;
     } catch (error) {
       throw new Error(`DynamoDB UpdateById Error: ${error.message}`);
@@ -150,6 +208,12 @@ class DynamoDbOp extends DbOperations {
     };
     try {
       const result = await this.dynamodb.update(params).promise();
+
+      // Invalidate Cache (Best effort - we might not know the exact ID if filter is complex, 
+      // but here filter IS the key for updateOne usually)
+      const cacheKey = `${this.tableName}:${JSON.stringify(filter)}`;
+      cacheService.del(cacheKey);
+
       return result.Attributes;
     } catch (error) {
       throw new Error(`DynamoDB UpdateOne Error: ${error.message}`);
@@ -164,6 +228,12 @@ class DynamoDbOp extends DbOperations {
     };
     try {
       await this.dynamodb.put(params).promise();
+
+      // Invalidate Cache
+      const key = this.extractKey(data);
+      const cacheKey = `${this.tableName}:${JSON.stringify(key)}`;
+      cacheService.del(cacheKey);
+
       return data;
     } catch (error) {
       throw new Error(`DynamoDB Upsert Error: ${error.message}`);
@@ -184,6 +254,11 @@ class DynamoDbOp extends DbOperations {
     };
     try {
       await this.dynamodb.delete(params).promise();
+
+      // Invalidate Cache
+      const cacheKey = `${this.tableName}:${JSON.stringify(key)}`;
+      cacheService.del(cacheKey);
+
       return { success: true };
     } catch (error) {
       throw new Error(`DynamoDB DeleteById Error: ${error.message}`);
@@ -193,13 +268,18 @@ class DynamoDbOp extends DbOperations {
   async deleteOne(filter) {
     // Extract only the key attributes if filter contains extra attributes
     const key = this.extractKey(filter);
-    
+
     const params = {
       TableName: this.tableName,
       Key: key,
     };
     try {
       await this.dynamodb.delete(params).promise();
+
+      // Invalidate Cache
+      const cacheKey = `${this.tableName}:${JSON.stringify(key)}`;
+      cacheService.del(cacheKey);
+
       return { success: true };
     } catch (error) {
       throw new Error(`DynamoDB DeleteOne Error: ${error.message}`);
