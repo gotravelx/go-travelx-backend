@@ -2,6 +2,7 @@ import fetch from 'node-fetch';
 import axios from 'axios';
 import https from 'https';
 import logger from '../utils/Logger.js';
+import tokenRefresher from '../helper/0authTokenManager.js';
 
 const agent = new https.Agent({
     rejectUnauthorized: false,
@@ -91,55 +92,48 @@ export const getProxyFlightStatus = async (req, res) => {
  */
 export const getAzureToken = async (req, res) => {
     try {
-        if (!CLIENT_ID || !CLIENT_SECRET || !SCOPE || !TOKEN_URL) {
-            return res.status(500).json({ error: 'Missing required Azure OAuth environment variables' });
+        logger.info(`[Proxy] Fetching Azure token via TokenRefresher`);
+
+        const token = await tokenRefresher.getToken();
+
+        if (!token) {
+            return res.status(500).json({
+                error: 'Token generation failed',
+                details: 'Unable to obtain access token from TokenRefresher'
+            });
         }
 
-        const params = new URLSearchParams({
-            client_id: CLIENT_ID,
-            client_secret: CLIENT_SECRET,
-            scope: SCOPE,
-            grant_type: 'client_credentials',
+        // Return in the format expected by the frontend or consumers
+        // The original returned response.data which typically contains access_token, expires_in, etc.
+        // TokenRefresher only returns the access_token string.
+        // If the consumer expects the full object, we might need to adjust TokenRefresher or mock the response here.
+        // However, looking at the original code: return res.status(200).json(response.data);
+        // And response.data usually has { access_token, token_type, expires_in, ... }
+
+        // Since TokenRefresher abstracts this and only gives the token, I should probably check what the frontend expects.
+        // The user request says "can we enhanced the token so token valid untill it exorire and reuse over again".
+        // If I change the response format, it might break things.
+
+        // Let's check TokenRefresher again. It has _saveTokenToCache which saves { token, expiry }.
+        // But getToken() returns just the token string.
+
+        // If I want to return the full object, I might need to expose more from TokenRefresher.
+        // But for now, let's assume returning just the token or constructing a minimal object is fine, 
+        // OR I can reconstruct a response object.
+
+        // Wait, if the frontend expects `access_token` field, I should return JSON with that field.
+
+        // Calculate remaining time in seconds
+        const remainingSeconds = tokenRefresher.tokenExpiry
+            ? Math.max(0, Math.floor((tokenRefresher.tokenExpiry - Date.now()) / 1000))
+            : 3599;
+
+        return res.status(200).json({
+            access_token: token,
+            token_type: 'Bearer',
+            expires_in: remainingSeconds
         });
 
-        logger.info(`[Proxy] Fetching Azure token from: ${TOKEN_URL}`);
-        logger.info(`[Proxy] Request params: ${params.toString()}`);
-
-        try {
-            const response = await axios.post(TOKEN_URL, params.toString(), {
-                headers: {
-                    'Content-Type': 'application/x-www-form-urlencoded',
-                },
-                httpsAgent: agent,
-                timeout: 60000,
-            });
-
-            logger.info(`[Proxy] Azure token fetched successfully`);
-            return res.status(200).json(response.data);
-        } catch (axiosErr) {
-            logger.error(`[Proxy] Axios error: ${axiosErr.message}`);
-            if (axiosErr.response) {
-                // The request was made and the server responded with a status code
-                // that falls out of the range of 2xx
-                logger.error(`[Proxy] Response status: ${axiosErr.response.status}`);
-                logger.error(`[Proxy] Response data: ${JSON.stringify(axiosErr.response.data)}`);
-                return res.status(axiosErr.response.status).json({
-                    error: `Failed to fetch access token: ${axiosErr.response.status}`,
-                    details: axiosErr.response.data,
-                });
-            } else if (axiosErr.request) {
-                // The request was made but no response was received
-                logger.error(`[Proxy] No response received. Request details: ${JSON.stringify(axiosErr.config)}`);
-                return res.status(504).json({
-                    error: "No response from Azure",
-                    details: axiosErr.message
-                });
-            } else {
-                // Something happened in setting up the request that triggered an Error
-                logger.error(`[Proxy] Request setup error: ${axiosErr.message}`);
-                throw axiosErr;
-            }
-        }
     } catch (err) {
         logger.error('Token generation failed:', err);
         return res.status(500).json({
