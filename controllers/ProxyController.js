@@ -19,10 +19,15 @@ const TARGET_URL_BASE = process.env.API;
  */
 export const getProxyFlightStatus = async (req, res) => {
     try {
-        const authHeader = req.headers.get ? req.headers.get('Authorization') : req.headers['authorization'];
+        let authHeader = req.headers.get ? req.headers.get('Authorization') : req.headers['authorization'];
 
         if (!authHeader) {
             return res.status(401).json({ error: 'Authorization header is required' });
+        }
+
+        // Ensure Bearer prefix if missing
+        if (authHeader && !authHeader.toLowerCase().startsWith('bearer ')) {
+            authHeader = `Bearer ${authHeader}`;
         }
 
         if (!TARGET_URL_BASE) {
@@ -30,7 +35,15 @@ export const getProxyFlightStatus = async (req, res) => {
         }
 
         const fltNbr = req.query.fltNbr || '5724';
-        const targetUrl = new URL(`${TARGET_URL_BASE}`);
+
+        // Force HTTPS for production United API if it's currently HTTP
+        let targetUrlBase = TARGET_URL_BASE;
+        if (targetUrlBase.includes('rte-prd.ual.com') && targetUrlBase.startsWith('http://')) {
+            logger.info(`[Proxy] Forcing HTTPS for United production API`);
+            targetUrlBase = targetUrlBase.replace('http://', 'https://');
+        }
+
+        const targetUrl = new URL(targetUrlBase);
         targetUrl.searchParams.set('fltNbr', fltNbr);
 
         // Append other search params
@@ -48,10 +61,10 @@ export const getProxyFlightStatus = async (req, res) => {
         const upstreamRes = await fetch(targetUrl.toString(), {
             method: 'GET',
             headers: {
-                Accept: 'application/json',
+                'Accept': 'application/json',
                 'User-Agent': 'UnitedFlightService/1.0',
                 'rte-ual-auth': "GTXRlZ3R4OkdUWFBBNRP",
-                Authorization: authHeader,
+                'Authorization': authHeader,
             },
             agent: agent,
             signal: controller.signal,
@@ -64,6 +77,9 @@ export const getProxyFlightStatus = async (req, res) => {
             logger.error('Proxy Upstream Error:', {
                 status: upstreamRes.status,
                 statusText: upstreamRes.statusText,
+                url: targetUrl.toString(),
+                // Log only first few chars of auth header for security
+                authPrefix: authHeader.substring(0, 15) + '...',
                 body: errorBody,
             });
             return res.status(upstreamRes.status).json({

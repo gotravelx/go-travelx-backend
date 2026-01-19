@@ -1,6 +1,8 @@
 
 
 import dotenv from "dotenv";
+dotenv.config();
+
 import express from "express";
 import cookieParser from "cookie-parser";
 import cors from "cors";
@@ -16,9 +18,6 @@ import TokenRefresher from "./helper/0authTokenManager.js";
 import tokenConfig from "./config/0authTokenConfig.js";
 import SubscriptionRouter from "./routes/SubscritionRoutes.js";
 import helmet from "helmet";
-
-// Load environment variables first
-dotenv.config();
 
 // Environment configuration
 const ENV = process.env.NODE_ENV || "local";
