@@ -772,6 +772,61 @@ export class FlightBlockchainService {
       throw error;
     }
   }
+
+  async getFlightTransactionHash(flightNumber, carrierCode) {
+    try {
+      customLogger.info(`Searching for FlightDataInserted event for ${flightNumber} (${carrierCode})`);
+
+      // Query events from block 0 to latest
+      // Note: In production, you might want to limit this range or store the deployment block
+      const filter = this.contract.filters.FlightDataInserted();
+      const events = await this.contract.queryFilter(filter, 0, 'latest');
+
+      const flightEvent = events.find(event =>
+        event.args &&
+        event.args.flightNumber === flightNumber &&
+        event.args.carrierCode === carrierCode
+      );
+
+      if (flightEvent) {
+        customLogger.info(`Found transaction hash for flight ${flightNumber}: ${flightEvent.transactionHash}`);
+        return flightEvent.transactionHash;
+      }
+
+      customLogger.warn(`No FlightDataInserted event found for ${flightNumber} (${carrierCode})`);
+      return null;
+    } catch (error) {
+      customLogger.error("Error fetching flight transaction hash from events:", error);
+      return null;
+    }
+  }
+
+  async getSubscriptionTransactionHash(userAddress, flightNumber, carrierCode) {
+    try {
+      customLogger.info(`Searching for FlightSubscriptionAdded event for ${userAddress} on ${flightNumber}`);
+
+      const filter = this.contract.filters.FlightSubscriptionAdded();
+      const events = await this.contract.queryFilter(filter, 0, 'latest');
+
+      const subEvent = events.find(event =>
+        event.args &&
+        event.args.user.toLowerCase() === userAddress.toLowerCase() &&
+        event.args.flightNumber === flightNumber &&
+        event.args.carrierCode === carrierCode
+      );
+
+      if (subEvent) {
+        customLogger.info(`Found subscription hash for ${flightNumber}: ${subEvent.transactionHash}`);
+        return subEvent.transactionHash;
+      }
+
+      customLogger.warn(`No FlightSubscriptionAdded event found for ${userAddress} on ${flightNumber}`);
+      return null;
+    } catch (error) {
+      customLogger.error("Error fetching subscription transaction hash from events:", error);
+      return null;
+    }
+  }
 }
 
 export const createFlightBlockchainService = (

@@ -266,6 +266,13 @@ export const addFlightSubscription = async (req, res) => {
           customLogger.info(
             `[SUBSCRIPTION] Flight already exists in blockchain for ${flightNumber}. Syncing to DB.`
           );
+
+          // Try to get the actual transaction hash from blockchain events
+          const actualHash = await blockchainService.getFlightTransactionHash(
+            flightNumber,
+            flightDetails.carrierCode
+          );
+
           // Sync to database if missing but exists in blockchain
           flightEventResult = await insertFlightEvent(
             flightNumber,
@@ -274,9 +281,11 @@ export const addFlightSubscription = async (req, res) => {
             departureAirport,
             arrivalAirport,
             flightStatus,
-            "EXISTING_IN_BLOCKCHAIN",
+            actualHash || "EXISTING_IN_BLOCKCHAIN",
             flightData
           );
+
+          blockchainFlightHash = actualHash || "EXISTING_IN_BLOCKCHAIN";
         }
 
         customLogger.info(
@@ -325,6 +334,8 @@ export const addFlightSubscription = async (req, res) => {
       `[SUBSCRIPTION] Subscribing to blockchain for flight ${flightNumber}`
     );
     let blockchainSubscription = null;
+    let existingSubscriptionHash = null;
+
     if (!isAlreadySubscribedBlockchain) {
       try {
         blockchainSubscription = await blockchainService.addSubscription(
@@ -353,10 +364,19 @@ export const addFlightSubscription = async (req, res) => {
           customLogger.info(
             `[SUBSCRIPTION] User already subscribed to flight ${flightNumber} (Blockchain Error)`
           );
+
+          // Try to get the actual transaction hash
+          existingSubscriptionHash = await blockchainService.getSubscriptionTransactionHash(
+            walletAddress,
+            flightNumber,
+            flightDetails.carrierCode
+          );
+
           return res.status(200).json({
             success: true,
             flightNumber,
             isSubscribed: true,
+            blockchainTxHash: existingSubscriptionHash || "ALREADY_SUBSCRIBED",
             message: "User already subscribed to this flight",
             subscriptionSource: "blockchain_error",
           });
@@ -384,6 +404,13 @@ export const addFlightSubscription = async (req, res) => {
           details: errorMessage,
         });
       }
+    } else {
+      // User is already subscribed, try to get the hash
+      existingSubscriptionHash = await blockchainService.getSubscriptionTransactionHash(
+        walletAddress,
+        flightNumber,
+        flightDetails.carrierCode
+      );
     }
 
     // Step 7: Save subscription to database
@@ -395,7 +422,7 @@ export const addFlightSubscription = async (req, res) => {
         departureAirport,
         arrivalAirport,
         blockchainTxHash:
-          blockchainSubscription?.transactionHash || "ALREADY_SUBSCRIBED",
+          blockchainSubscription?.transactionHash || existingSubscriptionHash || "ALREADY_SUBSCRIBED",
         isSubscriptionActive: true,
         subscriptionDate: new Date().toISOString(),
         createdAt: new Date().toISOString(),
@@ -414,7 +441,7 @@ export const addFlightSubscription = async (req, res) => {
         success: true,
         flightNumber,
         blockchainTxHash:
-          blockchainSubscription?.transactionHash || "ALREADY_SUBSCRIBED",
+          blockchainSubscription?.transactionHash || existingSubscriptionHash || "ALREADY_SUBSCRIBED",
         isSubscribed: true,
         message:
           "Successfully subscribed to flight (blockchain), but database save failed",
@@ -428,7 +455,7 @@ export const addFlightSubscription = async (req, res) => {
       success: true,
       flightNumber,
       blockchainTxHash:
-        blockchainSubscription?.transactionHash || "ALREADY_SUBSCRIBED",
+        blockchainSubscription?.transactionHash || existingSubscriptionHash || "ALREADY_SUBSCRIBED",
       flightEventHash: blockchainFlightHash,
       isSubscribed: true,
       message: isAlreadySubscribedBlockchain
