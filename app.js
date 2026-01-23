@@ -182,6 +182,15 @@ app.get("/health", (req, res) => {
   });
 });
 
+/* ==================== INTERNAL HEALTH CHECK (ALB/Route 53) ==================== */
+// Lightweight endpoint for ALB health checks - does NOT hit Kong or live API logic
+app.get("/internal-health", (req, res) => {
+  res.status(200).json({
+    status: "OK",
+    timestamp: new Date().toISOString(),
+  });
+});
+
 /* ==================== ENV INFO ==================== */
 if (isLocalEnv || isDevEnv) {
   app.get(`/${ENV}/info`, (req, res) => {

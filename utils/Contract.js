@@ -220,8 +220,42 @@ export class FlightBlockchainService {
         })
       );
 
-      const flightDataArray = decompressedFlightDataArray.map((flightInfo) => {
-        return extractKeyFlightInfo({ flightData: flightInfo });
+
+
+      // Fetch events to get transaction hashes
+      const filter = this.contract.filters.FlightDataInserted(
+        null, // flightId (indexed) - we don't have this easily, so skip
+        null, // flightNumber (not indexed in some versions, but let's check ABI)
+        null  // carrierCode
+      );
+
+      // We need to filter manually because the event args might not be indexed as expected or we want to be safe
+      const events = await this.contract.queryFilter(filter, 0, 'latest');
+
+      const relevantEvents = events.filter(event =>
+        event.args &&
+        String(event.args.flightNumber) === String(flightNumber) &&
+        String(event.args.carrierCode) === String(carrierCode)
+      );
+
+
+      const flightDataArray = decompressedFlightDataArray.map((flightInfo, index) => {
+        const extracted = extractKeyFlightInfo({ flightData: flightInfo });
+
+
+        let txHash = null;
+        if (relevantEvents.length === decompressedFlightDataArray.length) {
+          txHash = relevantEvents[index].transactionHash;
+        } else {
+          if (index < relevantEvents.length) {
+            txHash = relevantEvents[index].transactionHash;
+          }
+        }
+
+        return {
+          ...extracted,
+          blockchainHash: txHash,
+        };
       });
 
       return flightDataArray;
